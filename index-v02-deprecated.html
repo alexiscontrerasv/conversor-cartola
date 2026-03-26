@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Conversor de Cartola Bancaria — v3</title>
+<title>Conversor de Cartola Bancaria</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&display=swap');
@@ -620,20 +620,15 @@
   <div class="bank-selector">
     <div class="selector-title">Paso 1 — Selecciona el banco</div>
     <div class="bank-grid">
-      <div class="bank-btn" onclick="selectBank('santander')" id="bank-santander">
-        <div class="bank-logo">🔴</div>
-        <div class="bank-name">Santander</div>
-        <div class="bank-hint">1 archivo</div>
-      </div>
       <div class="bank-btn" onclick="selectBank('bci')" id="bank-bci">
         <div class="bank-logo">🏦</div>
         <div class="bank-name">BCI</div>
-        <div class="bank-hint">1 o más archivos</div>
+        <div class="bank-hint">1–4 archivos</div>
       </div>
       <div class="bank-btn" onclick="selectBank('bancoestado')" id="bank-bancoestado">
         <div class="bank-logo">🏛️</div>
         <div class="bank-name">Banco Estado</div>
-        <div class="bank-hint">1 o más · hoja Movimientos</div>
+        <div class="bank-hint">1–4 archivos</div>
       </div>
       <div class="bank-btn" onclick="selectBank('bancochile')" id="bank-bancochile">
         <div class="bank-logo">🇨🇱</div>
@@ -747,7 +742,7 @@
   <button class="btn-reset" id="btnReset" onclick="resetAll()">↩ Procesar otro archivo</button>
 
   <footer>
-    <div>Conversor Cartola Bancaria v3.0 — Multi-banco (Santander = lógica v1)</div>
+    <div>Conversor Cartola Bancaria v2.0 — Multi-banco</div>
     <div>Hecho con ❤️ para mi Negrita</div>
   </footer>
 </div>
@@ -771,9 +766,8 @@ function selectBank(bank) {
   zone.classList.add('visible');
 
   const hints = {
-    santander:   { title: 'Arrastra la cartola Santander aquí', sub: 'Selecciona un archivo .xlsx o .xls', hint: 'Misma lógica que la versión 1 del conversor (Detalle movimientos)', multi: false },
-    bci:         { title: 'Arrastra las cartolas BCI aquí', sub: 'Selecciona uno o más archivos .xlsx / .xls', hint: 'Se unifican todos los archivos en un solo output', multi: true },
-    bancoestado: { title: 'Arrastra las cartolas Banco Estado', sub: 'Selecciona uno o más archivos .xlsx / .xls', hint: 'Los movimientos se leen desde la hoja "Movimientos" de cada archivo', multi: true },
+    bci:         { title: 'Arrastra las cartolas BCI aquí', sub: 'Selecciona de 1 a 4 archivos .xlsx', hint: 'Cada archivo cubre un período semanal — se unificarán automáticamente', multi: true },
+    bancoestado: { title: 'Arrastra las cartolas Banco Estado', sub: 'Selecciona de 1 a 4 archivos .xlsx', hint: 'Los movimientos están en la hoja "Movimientos" de cada archivo', multi: true },
     bancochile:  { title: 'Arrastra la cartola Banco de Chile', sub: 'Selecciona el archivo .xls / .xlsx', hint: 'Cartola histórica de cuenta corriente', multi: false },
     itau:        { title: 'Arrastra la cartola Itaú Empresas', sub: 'Selecciona el archivo .xlsx', hint: 'Cartola histórica — Detalle de Cartola Histórica', multi: false },
     scotiabank:  { title: 'Arrastra la cartola Scotiabank', sub: 'Selecciona el archivo .xls / .xlsx', hint: 'Cartola con columna de abonos y cargos por signo', multi: false },
@@ -824,6 +818,9 @@ function handleFiles(files) {
   if (!isMulti && valid.length > 1) {
     showWarning('Solo se usará el primer archivo para este banco.');
     uploadedFiles = [valid[0]];
+  } else if (isMulti && valid.length > 4) {
+    showWarning('Máximo 4 archivos. Se usarán los primeros 4.');
+    uploadedFiles = valid.slice(0, 4);
   } else {
     uploadedFiles = valid;
   }
@@ -889,7 +886,6 @@ function parseAllFiles() {
   try {
     let result;
     switch(selectedBank) {
-      case 'santander':   result = parseSantanderCartola(workbooks[0]); break;
       case 'bci':         result = parseBCI(workbooks); break;
       case 'bancoestado': result = parseBancoEstado(workbooks); break;
       case 'bancochile':  result = parseBancoChile(workbooks[0]); break;
@@ -907,226 +903,7 @@ function parseAllFiles() {
   }
 }
 
-// ─── SANTANDER — misma lógica que index.html v1 (parseCartola) ───────────────
-function formatDateSantander(v) {
-  if (!v) return '';
-  const s = String(v);
-  if (/\d{2}\/\d{2}\/\d{4}/.test(s)) return s;
-  const d = new Date(s);
-  if (!isNaN(d)) {
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  }
-  return s;
-}
-
-function parsePeriodoSantander(desde, hasta) {
-  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  let mes = 2, anio = 2026;
-  let fechaDesde = '01-02-2026', fechaHasta = '28-02-2026';
-  let mesNombre = 'Febrero';
-
-  if (desde) {
-    const s = String(desde);
-    const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-    if (m) {
-      mes = parseInt(m[2]);
-      anio = parseInt(m[3]);
-      fechaDesde = `01-${m[2]}-${m[3]}`;
-      mesNombre = meses[mes - 1] || String(mes);
-    }
-  }
-  if (hasta) {
-    const s = String(hasta);
-    const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-    if (m) {
-      const lastDay = new Date(parseInt(m[3]), parseInt(m[2]), 0).getDate();
-      fechaHasta = `${String(lastDay).padStart(2,'0')}-${m[2]}-${m[3]}`;
-    }
-  }
-  return { mes, anio, fechaDesde, fechaHasta, mesNombre };
-}
-
-function parseSantanderCartola(wb) {
-  const sheetName = wb.SheetNames[0];
-  const ws = wb.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false });
-
-  let detailStart = -1;
-  let summaryStart = -1;
-  let saldoInicialRow = -1;
-  let saldoFinalVal = null;
-  let saldoInicialVal = null;
-  let fechaDesde = null, fechaHasta = null;
-  let numCartola = null;
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    const joined = row.filter(Boolean).join(' ').toLowerCase();
-
-    if (joined.includes('saldo inicial') && joined.includes('saldo final')) {
-      saldoInicialRow = i + 1;
-    }
-    if (joined.includes('detalle movimientos')) {
-      detailStart = i + 2;
-    }
-    if (joined.includes('resumen comisiones')) {
-      summaryStart = i;
-    }
-    if (joined.includes('número cartola') || joined.includes('numero cartola') || joined.includes('n° cartola') || joined.includes('cartola:')) {
-      const r = rows[i];
-      for (let j = 0; j < r.length; j++) {
-        const cell = String(r[j] || '').toLowerCase();
-        if (cell.includes('cartola')) {
-          const numMatch = String(r[j]).match(/[\d]+/);
-          if (numMatch) { numCartola = numMatch[0]; break; }
-          if (r[j+1] !== null && r[j+1] !== undefined) {
-            numCartola = String(r[j+1]).replace(/\D/g,'') || String(r[j+1]);
-            break;
-          }
-        }
-      }
-    }
-    if (joined.includes('fecha desde')) {
-      const r = rows[i];
-      for (let j = 0; j < r.length; j++) {
-        if (String(r[j]).toLowerCase().includes('fecha desde')) fechaDesde = r[j + 1] || null;
-        if (String(r[j]).toLowerCase().includes('fecha hasta')) fechaHasta = r[j + 1] || null;
-      }
-    }
-  }
-
-  if (saldoInicialRow >= 0) {
-    const r = rows[saldoInicialRow];
-    saldoInicialVal = parseNum(r[0]);
-    saldoFinalVal = parseNum(r[6]);
-  }
-
-  if (detailStart < 0) {
-    showError('No se encontró la sección "Detalle movimientos" en el archivo.');
-    return null;
-  }
-
-  const transactions = [];
-  const dataEnd = summaryStart >= 0 ? summaryStart : rows.length;
-
-  for (let i = detailStart; i < dataEnd; i++) {
-    const row = rows[i];
-    if (!row || row.every(c => c === null)) continue;
-    const monto = row[0];
-    const desc = row[1];
-    const fecha = row[3];
-    const tipo = row[7];
-
-    if (!monto || !fecha) continue;
-
-    const montoNum = parseFloat(String(monto).replace(/[^0-9.-]/g, ''));
-    if (isNaN(montoNum)) continue;
-
-    const isAbono = String(tipo || '').toUpperCase().trim() === 'A';
-    const isCargo = String(tipo || '').toUpperCase().trim() === 'C' || montoNum < 0;
-    const fd = formatDateSantander(fecha);
-
-    transactions.push({
-      fecha: fd,
-      tipo: isCargo ? 'CB' : 'DP',
-      nDoc: extractDocNumber(fd),
-      cargo: isCargo ? Math.abs(montoNum) : null,
-      abono: isAbono ? Math.abs(montoNum) : null,
-      desc: String(desc || ''),
-    });
-  }
-
-  if (transactions.length === 0) {
-    showError('No se encontraron movimientos en el archivo.');
-    return null;
-  }
-
-  const pd = parsePeriodoSantander(fechaDesde, fechaHasta);
-
-  return {
-    mes: pd.mes,
-    anio: pd.anio,
-    saldoInicial: saldoInicialVal || 0,
-    saldoFinal: saldoFinalVal || 0,
-    fechaDesde: pd.fechaDesde,
-    fechaHasta: pd.fechaHasta,
-    mesNombre: pd.mesNombre,
-    banco: 'Santander',
-    numCartola: numCartola || '000',
-    transactions,
-  };
-}
-
-// ─── BCI — columnas por encabezado (huecos: Fecha, Sucursal, Descripción…; "Cheques y otros cargos" / "Depósitos y Abono")
-function mapBCIHeaderColumns(row) {
-  if (!row || !row.length) return null;
-  const idx = {};
-  for (let j = 0; j < row.length; j++) {
-    const s = normChileHeader(row[j]);
-    if (!s) continue;
-    if (idx.fecha === undefined && (s === 'fecha' || (s.includes('fecha') && s.length < 30 && !s.match(/^\d/)))) idx.fecha = j;
-    if (idx.desc === undefined && (s.includes('descrip') || s.includes('descripcion'))) idx.desc = j;
-    if (idx.nDoc === undefined && ((s.includes('documento') && !s.includes('descri')) || (s.includes('n°') && s.includes('doc')))) idx.nDoc = j;
-    if (idx.cargo === undefined && (s.includes('cheque') || (s.includes('otros') && s.includes('cargo')))) idx.cargo = j;
-    if (idx.cargo === undefined && s.includes('cargo') && !s.includes('abono') && !s.includes('deposito')) idx.cargo = j;
-    if (idx.abono === undefined && (s.includes('deposito') || (s.includes('abono') && s.includes('deposit')))) idx.abono = j;
-    if (idx.abono === undefined && s === 'abono') idx.abono = j;
-    if (idx.saldo === undefined && s.includes('saldo') && (s.includes('diario') || s.includes('dia'))) idx.saldo = j;
-  }
-  if (idx.fecha === undefined || idx.desc === undefined || idx.cargo === undefined || idx.abono === undefined) return null;
-  if (!(idx.fecha < idx.cargo && idx.cargo < idx.abono)) return null;
-  return idx;
-}
-
-function findBCIDataStart(rows) {
-  for (let i = 0; i < rows.length; i++) {
-    const m = mapBCIHeaderColumns(rows[i]);
-    if (m) return { headerRow: i, colMap: m };
-  }
-  let detailStart = -1;
-  for (let i = 0; i < rows.length; i++) {
-    const joined = (rows[i] || []).filter(Boolean).join(' ').toLowerCase();
-    if (
-      joined.includes('movimientos cuenta corriente') ||
-      (joined.includes('movimientos') && joined.includes('cuenta') && joined.includes('corriente'))
-    ) {
-      detailStart = i + 2;
-      if (rows[i + 1]) {
-        const j1 = rows[i + 1].filter(Boolean).join(' ').toLowerCase();
-        if (j1.includes('fecha') && (j1.includes('descripci') || j1.includes('sucursal') || j1.includes('documento'))) {
-          detailStart = i + 2;
-        } else if (rows[i + 2]) {
-          const j2 = rows[i + 2].filter(Boolean).join(' ').toLowerCase();
-          if (j2.includes('fecha')) detailStart = i + 3;
-        }
-      }
-      break;
-    }
-  }
-  if (detailStart < 0) {
-    for (let i = 0; i < rows.length; i++) {
-      const jrow = (rows[i] || []).filter(Boolean).join(' ').toLowerCase();
-      if (
-        jrow.includes('fecha') &&
-        (jrow.includes('descripci') || jrow.includes('descripcion')) &&
-        (jrow.includes('cargo') || jrow.includes('abono') || jrow.includes('dep') || jrow.includes('cheque'))
-      ) {
-        detailStart = i + 1;
-        break;
-      }
-    }
-  }
-  if (detailStart <= 0) return null;
-  const headerRow = detailStart - 1;
-  const m = mapBCIHeaderColumns(rows[headerRow]);
-  if (m) return { headerRow, colMap: m };
-  return null;
-}
-
-// ─── BCI PARSER (uno o más archivos) ─────────────────────────────────────────
+// ─── BCI PARSER (1-4 archivos semanales) ────────────────────────────────────
 function parseBCI(wbs) {
   let allTransactions = [];
   let saldoInicial = null;
@@ -1135,14 +912,17 @@ function parseBCI(wbs) {
   let fechaHasta = null;
   let numCuenta = '';
 
+  // Sort by period start date
   const parsed = wbs.map(wb => {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
     return { wb, rows };
   });
 
+  // Parse each file, collect transactions
   parsed.forEach((p, idx) => {
     const rows = p.rows;
+    let detailStart = -1;
     let periodoStr = null;
     let saldoAnterior = null;
     let saldoFinalPeriod = null;
@@ -1151,6 +931,7 @@ function parseBCI(wbs) {
       const row = rows[i];
       const joined = row.filter(Boolean).join(' ').toLowerCase();
 
+      // Get N° cuenta
       if (joined.includes('n° de cuenta') || joined.includes('n de cuenta')) {
         for (let j=0; j<row.length; j++) {
           if (String(row[j]||'').toLowerCase().includes('cuenta')) {
@@ -1159,31 +940,36 @@ function parseBCI(wbs) {
         }
       }
 
-      if (joined.includes('periodo')) {
-        for (let j = 0; j < row.length; j++) {
-          const cell = String(row[j] || '');
-          if (cell.match(/\d{2}-\d{2}-\d{4}\s+al\s+\d{2}-\d{2}-\d{4}/)) {
-            periodoStr = cell;
-            break;
+      // Período
+      if (joined.includes('periodo') && joined.includes(' al ')) {
+        for (let j=0; j<row.length; j++) {
+          if (String(row[j]||'').match(/\d{2}-\d{2}-\d{4}.*al.*\d{2}-\d{2}-\d{4}/)) {
+            periodoStr = String(row[j]);
           }
-          if (String(row[j] || '').toLowerCase().trim() === 'periodo' && row[j + 1]) {
-            const v = String(row[j + 1]);
-            if (v.match(/\d{2}-\d{2}-\d{4}\s+al\s+\d{2}-\d{2}-\d{4}/)) periodoStr = v;
-            else if (v.match(/\d{2}-\d{2}-\d{4}/)) periodoStr = v;
+          if (String(row[j]||'').toLowerCase() === 'periodo' && row[j+1]) {
+            const v = String(row[j+1]);
+            if (v.match(/\d{2}-\d{2}-\d{4}/)) periodoStr = v;
           }
         }
       }
 
+      // Resumen del periodo → saldo anterior y saldo final
       if (i > 0 && rows[i-1] && rows[i-1].filter(Boolean).join(' ').toLowerCase().includes('saldo anterior')) {
         saldoAnterior = parseNum(rows[i][1]);
         saldoFinalPeriod = parseNum(rows[i][4]);
       }
+
+      // Header movimientos
+      if (joined.includes('movimientos cuenta corriente')) {
+        detailStart = i + 2;
+      }
     }
 
+    // Extract period dates from periodoStr like "26-01-2026 al 02-02-2026"
     if (periodoStr) {
       const m = periodoStr.match(/(\d{2}-\d{2}-\d{4})\s+al\s+(\d{2}-\d{2}-\d{4})/);
       if (m) {
-        if (idx === 0 || !fechaDesde) fechaDesde = m[1].replace(/-/g,'/');
+        if (idx === 0 || !fechaDesde) fechaDesde = m[1].replace(/-/g,'/'); // dd/mm/yyyy
         fechaHasta = m[2].replace(/-/g,'/');
       }
     }
@@ -1191,40 +977,36 @@ function parseBCI(wbs) {
     if (idx === 0) saldoInicial = saldoAnterior;
     saldoFinal = saldoFinalPeriod;
 
-    const found = findBCIDataStart(rows);
-    if (!found) return;
+    // Extract transactions
+    if (detailStart >= 0) {
+      for (let i = detailStart; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.every(c => c === null)) continue;
+        // BCI cols: Fecha | Sucursal | Descripción | N° Documento | Cheques y otros cargos | Depósitos y Abono | Saldo diario
+        const fecha = row[0];
+        const desc = row[2];
+        const nDoc = row[3];
+        const cargo = row[4];
+        const abono = row[5];
 
-    const { headerRow, colMap } = found;
-    for (let i = headerRow + 1; i < rows.length; i++) {
-      const row = rows[i];
-      if (!row || row.every(c => c === null || c === undefined || c === '')) continue;
+        if (!fecha) continue;
+        const fechaFmt = formatDate(fecha);
+        if (!fechaFmt || !fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
 
-      const fecha = row[colMap.fecha];
-      const desc = row[colMap.desc];
-      const cargo = row[colMap.cargo];
-      const abono = row[colMap.abono];
-      const nDocCell = colMap.nDoc !== undefined ? row[colMap.nDoc] : null;
+        const cargoNum = parseNum(cargo);
+        const abonoNum = parseNum(abono);
+        if (cargoNum === 0 && abonoNum === 0) continue;
 
-      if (fecha === null || fecha === undefined || fecha === '') continue;
-      const fechaFmt = formatDate(fecha);
-      if (!fechaFmt || !fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
-
-      const cargoNum = parseNum(cargo);
-      const abonoNum = parseNum(abono);
-      if (cargoNum === 0 && abonoNum === 0) continue;
-
-      const nDocDigits = parseInt(String(nDocCell || '').replace(/\D/g, ''), 10);
-      const nDocOut = !isNaN(nDocDigits) && nDocDigits > 0 ? nDocDigits : extractDocNumber(fechaFmt);
-
-      allTransactions.push({
-        fecha: fechaFmt,
-        tipo: abonoNum > 0 ? 'DP' : 'CB',
-        nDoc: nDocOut,
-        cargo: cargoNum > 0 ? cargoNum : null,
-        abono: abonoNum > 0 ? abonoNum : null,
-        desc: String(desc || ''),
-        _sortKey: fechaFmt.split('/').reverse().join(''),
-      });
+        allTransactions.push({
+          fecha: fechaFmt,
+          tipo: abonoNum > 0 ? 'DP' : 'CB',
+          nDoc: extractDocNumber(fechaFmt),
+          cargo: cargoNum > 0 ? cargoNum : null,
+          abono: abonoNum > 0 ? abonoNum : null,
+          desc: String(desc || ''),
+          _sortKey: fechaFmt.split('/').reverse().join(''),
+        });
+      }
     }
   });
 
@@ -1267,7 +1049,7 @@ function parseBCI(wbs) {
   };
 }
 
-// ─── BANCO ESTADO PARSER (uno o más archivos, hoja Movimientos) ───────────────
+// ─── BANCO ESTADO PARSER (1-4 archivos) ───────────────────────────────────────
 function parseBancoEstado(wbs) {
   let allTransactions = [];
   let saldoInicial = null;
@@ -1277,34 +1059,22 @@ function parseBancoEstado(wbs) {
   let numCartola = null;
   let numCuenta = null;
 
-  for (let idx = 0; idx < wbs.length; idx++) {
-    const wb = wbs[idx];
+  wbs.forEach((wb, idx) => {
+    // Banco Estado has "Resumen" and "Movimientos" sheets
     let resumenSheet = null;
     let movSheet = null;
     for (const sn of wb.SheetNames) {
-      if (sn.toLowerCase().includes('resumen')) resumenSheet = sn;
-    }
-    if (wb.SheetNames.includes('Movimientos')) {
-      movSheet = 'Movimientos';
-    } else {
-      for (const sn of wb.SheetNames) {
-        if (sn.toLowerCase().includes('movimiento')) {
-          movSheet = sn;
-          break;
-        }
-      }
+      const snl = sn.toLowerCase();
+      if (snl.includes('resumen')) resumenSheet = sn;
+      if (snl.includes('movimiento')) movSheet = sn;
     }
 
-    if (!movSheet) {
-      showError('No se encontró la hoja "Movimientos" en el archivo: ' + (wb._filename || '(sin nombre)') + '.');
-      return null;
-    }
-
+    // Parse Resumen sheet for meta info
     if (resumenSheet) {
       const ws = wb.Sheets[resumenSheet];
-      const rowsMeta = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
-      for (let i = 0; i < rowsMeta.length; i++) {
-        const row = rowsMeta[i];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
         const joined = row.filter(Boolean).join(' ').toLowerCase();
 
         if (joined.includes('n° cuenta corriente') || joined.includes('n° de cuenta')) {
@@ -1316,16 +1086,17 @@ function parseBancoEstado(wbs) {
         }
 
         if (joined.includes('n° cartola') || joined.includes('cartola')) {
-          const r = rowsMeta[i];
+          const r = rows[i];
           for (let j=0; j<r.length; j++) {
             if (String(r[j]||'').toLowerCase().includes('cartola')) {
-              const v = rowsMeta[i+1] ? rowsMeta[i+1][j] : r[j+1];
+              const v = rows[i+1] ? rows[i+1][j] : r[j+1];
               if (v !== null && v !== undefined) { numCartola = String(v); break; }
               if (r[j+1] !== null && r[j+1] !== undefined) { numCartola = String(r[j+1]); break; }
             }
           }
         }
 
+        // Fecha Inicio/Final
         if (joined.includes('fecha inicio')) {
           for (let j=0; j<row.length; j++) {
             if (String(row[j]||'').toLowerCase().includes('inicio') && row[j+1]) {
@@ -1341,6 +1112,7 @@ function parseBancoEstado(wbs) {
           }
         }
 
+        // Saldos
         if (joined.includes('saldo inicial')) {
           for (let j=0; j<row.length; j++) {
             if (String(row[j]||'').toLowerCase().includes('saldo inicial') && row[j+1]) {
@@ -1358,14 +1130,13 @@ function parseBancoEstado(wbs) {
       }
     }
 
-    const movWs = wb.Sheets[movSheet];
-    if (!movWs) {
-      showError('No se pudo leer la hoja "Movimientos" en: ' + (wb._filename || '') + '.');
-      return null;
-    }
+    // Parse Movimientos sheet
+    const movWs = wb.Sheets[movSheet || wb.SheetNames[movSheet ? wb.SheetNames.indexOf(movSheet) : 1] || wb.SheetNames[1] || wb.SheetNames[0]];
+    if (!movWs) return;
 
     const rows = XLSX.utils.sheet_to_json(movWs, { header:1, defval:null, raw:false });
-    let dataStart = 1;
+    // Find header row: Fecha | Sucursal | N° Cuenta | Alias | N° Cartola | N° Operación | Descripción | Cheques/Cargos | Depósitos/Abonos | Saldo
+    let dataStart = 1; // default: row 0 is header
     for (let i=0; i<rows.length; i++) {
       const joined = rows[i].filter(Boolean).join(' ').toLowerCase();
       if (joined.includes('fecha') && (joined.includes('descripci') || joined.includes('cargo') || joined.includes('abono'))) {
@@ -1377,6 +1148,7 @@ function parseBancoEstado(wbs) {
     for (let i = dataStart; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.every(c => c === null || c === '')) continue;
+      // BE cols: Fecha | Sucursal | N°Cuenta | Alias | N°Cartola | N°Operación | Descripción | Cheques/Cargos | Depósitos/Abonos | Saldo
       const fecha = row[0];
       const desc = row[6];
       const cargo = row[7];
@@ -1400,7 +1172,7 @@ function parseBancoEstado(wbs) {
         _sortKey: fechaFmt.split('/').reverse().join(''),
       });
     }
-  }
+  });
 
   if (allTransactions.length === 0) {
     showError('No se encontraron movimientos en los archivos de Banco Estado.');
@@ -1434,115 +1206,110 @@ function parseBancoEstado(wbs) {
   };
 }
 
-// ─── BANCO DE CHILE — encabezado en cualquier fila/columna (6 o 7 columnas) ──
-function normChileHeader(v) {
-  return String(v || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
-}
+// ─── BANCO DE CHILE PARSER ────────────────────────────────────────────────────
+function parseBancoChile(wb) {
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
 
-/** Índices de columna por etiqueta de encabezado (cartolas con columnas vacías intercaladas, ej. Fecha en B y Descripción en D). */
-function mapChileHeaderColumns(row) {
-  if (!row || !row.length) return null;
-  const idx = {};
-  for (let j = 0; j < row.length; j++) {
-    const s = normChileHeader(row[j]);
-    if (!s) continue;
-    if (idx.fecha === undefined && (s === 'fecha' || (s.includes('fecha') && s.length < 35 && !s.match(/^\d/)))) idx.fecha = j;
-    if (idx.desc === undefined && (s.includes('descrip') || s.includes('descripcion'))) idx.desc = j;
-    if (idx.canal === undefined && (s.includes('canal') || s.includes('sucursal'))) idx.canal = j;
-    if (idx.nDoc === undefined && (s.includes('docto') || (s.includes('documento') && s.includes('numero')) || (s.includes('numero') && s.includes('document')))) idx.nDoc = j;
-    if (idx.cargo === undefined && s.includes('cargo')) idx.cargo = j;
-    if (idx.abono === undefined && s.includes('abono')) idx.abono = j;
-    if (idx.saldo === undefined && s.includes('saldo') && !s.includes('disponible') && !s.includes('contable') && !s.includes('inicial') && !s.includes('final')) idx.saldo = j;
-  }
-  if (idx.fecha === undefined || idx.desc === undefined || idx.nDoc === undefined || idx.cargo === undefined || idx.abono === undefined || idx.saldo === undefined) return null;
-  if (!(idx.fecha < idx.cargo && idx.cargo < idx.saldo)) return null;
-  return idx;
-}
-
-function parseBancoChileFromRows(rows) {
-  let saldoInicial = null;
-  let saldoFinal = null;
+  let saldoInicial = null, saldoFinal = null;
+  let fechaDesde = null, fechaHasta = null;
   let numCuenta = null;
-  const transactions = [];
+  let transactions = [];
+  let detailStart = -1;
 
   for (let i = 0; i < rows.length; i++) {
-    const row = rows[i] || [];
-    const joined = row.filter(Boolean).map(normChileHeader).join(' ');
+    const row = rows[i];
+    const joined = row.filter(Boolean).join(' ').toLowerCase();
 
-    if (joined.includes('cuenta n') || joined.includes('cuenta no') || joined.includes('cuenta n:')) {
-      for (let j = 0; j < row.length; j++) {
-        if (normChileHeader(row[j]).includes('cuenta') && row[j + 1]) {
-          numCuenta = String(row[j + 1]);
-          break;
+    // Cuenta N°
+    if (joined.includes('cuenta n°') || joined.includes('cuenta no') || joined.includes('cuenta n:')) {
+      for (let j=0; j<row.length; j++) {
+        if (String(row[j]||'').toLowerCase().includes('cuenta')) {
+          if (row[j+1]) numCuenta = String(row[j+1]);
         }
       }
     }
 
+    // Saldo disponible / Saldo Contable
     if (joined.includes('saldo disponible') && joined.includes('saldo contable')) {
-      const r = rows[i + 1];
+      const r = rows[i+1];
+      if (r) {
+        // Row 14: saldo disponible, saldo contable
+        // Use saldo contable as saldo inicial
+        const vals = r.filter(v => v !== null && v !== undefined && String(v).trim() !== '');
+        if (vals.length >= 2) {
+          saldoInicial = parseNum(vals[1]); // saldo contable
+        }
+      }
+    }
+
+    // Total Cargos | Total Abonos
+    if (joined.includes('total cargos') && joined.includes('total abonos')) {
+      // Next row has values
+      const r = rows[i+1];
       if (r) {
         const vals = r.filter(v => v !== null && v !== undefined && String(v).trim() !== '');
-        if (vals.length >= 2) saldoInicial = parseNum(vals[1]);
+        // Saldo final = saldo inicial + abonos - cargos (computed later)
       }
-    } else if (joined.includes('saldo disponible') && !joined.includes('total general')) {
-      for (let j = 0; j < row.length; j++) {
-        if (normChileHeader(row[j]).includes('disponible') && row[j + 1] != null) {
-          const n = parseNum(row[j + 1]);
-          if (n !== 0) saldoInicial = n;
+    }
+
+    // Movimientos header
+    if (joined.includes('movimientos') && !joined.includes('total')) {
+      // Look for Fecha | Descripción | Canal | Nro.Docto | Cargos | Abonos | Saldo
+      if (rows[i+1]) {
+        const nextJoined = rows[i+1].filter(Boolean).join(' ').toLowerCase();
+        if (nextJoined.includes('fecha') || nextJoined.includes('descripci')) {
+          detailStart = i + 2;
+        } else {
+          detailStart = i + 1;
         }
       }
     }
   }
 
-  let headerRow = -1;
-  let colMap = null;
-
-  for (let i = 0; i < rows.length; i++) {
-    const m = mapChileHeaderColumns(rows[i] || []);
-    if (m) {
-      headerRow = i;
-      colMap = m;
-      break;
+  if (detailStart < 0) {
+    // Fallback: look for row with Fecha | Descripción columns
+    for (let i=0; i<rows.length; i++) {
+      const joined = rows[i].filter(Boolean).join(' ').toLowerCase();
+      if (joined.includes('fecha') && joined.includes('descripci') && joined.includes('cargo')) {
+        detailStart = i + 1;
+        break;
+      }
     }
   }
 
-  if (headerRow < 0 || !colMap) {
-    return { transactions: [], saldoInicial, saldoFinal, numCuenta };
+  if (detailStart < 0) {
+    showError('No se encontró el detalle de movimientos en la cartola de Banco de Chile.');
+    return null;
   }
 
-  for (let i = headerRow + 1; i < rows.length; i++) {
-    const row = rows[i] || [];
-    if (!row.length || row.every(x => x === null || x === undefined || String(x).trim() === '')) continue;
+  for (let i = detailStart; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.every(c => c === null || c === '')) continue;
 
-    const fecha = row[colMap.fecha];
-    const desc = row[colMap.desc];
-    const nDocCell = row[colMap.nDoc];
-    const cargo = row[colMap.cargo];
-    const abono = row[colMap.abono];
-    const saldoCell = row[colMap.saldo];
+    // BdChile cols: Fecha | Descripción | Canal/Sucursal | Nro.Docto | Cargos(CLP) | Abonos(CLP) | Saldo(CLP)
+    const fecha = row[0];
+    const desc = row[1];
+    const nDoc = row[3];
+    const cargo = row[4];
+    const abono = row[5];
+    const saldo = row[6];
 
-    if (fecha === null || fecha === undefined || fecha === '') continue;
-
+    if (!fecha) continue;
     const fechaFmt = formatDate(fecha);
-    if (!fechaFmt || !fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
+    if (!fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
 
     const cargoNum = parseNum(cargo);
     const abonoNum = parseNum(abono);
     if (cargoNum === 0 && abonoNum === 0) continue;
 
-    if (saldoCell != null && String(saldoCell).trim() !== '') saldoFinal = parseNum(saldoCell);
-
-    const nDocDigits = parseInt(String(nDocCell || '').replace(/\D/g, ''), 10);
-    const nDocOut = !isNaN(nDocDigits) && nDocDigits > 0 ? nDocDigits : extractDocNumber(fechaFmt);
+    if (!fechaDesde) fechaDesde = fechaFmt;
+    fechaHasta = fechaFmt;
 
     transactions.push({
       fecha: fechaFmt,
       tipo: abonoNum > 0 ? 'DP' : 'CB',
-      nDoc: nDocOut,
+      nDoc: extractDocNumber(fechaFmt),
       cargo: cargoNum > 0 ? cargoNum : null,
       abono: abonoNum > 0 ? abonoNum : null,
       desc: String(desc || ''),
@@ -1550,40 +1317,28 @@ function parseBancoChileFromRows(rows) {
     });
   }
 
-  return { transactions, saldoInicial, saldoFinal, numCuenta };
-}
-
-function parseBancoChile(wb) {
-  let best = null;
-  for (const sn of wb.SheetNames) {
-    const ws = wb.Sheets[sn];
-    if (!ws) continue;
-    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false });
-    const r = parseBancoChileFromRows(rows);
-    if (r.transactions.length > (best ? best.transactions.length : 0)) best = r;
-  }
-
-  if (!best || best.transactions.length === 0) {
-    showError('No se encontró el detalle de movimientos en la cartola de Banco de Chile (revisé todas las hojas).');
+  if (transactions.length === 0) {
+    showError('No se encontraron movimientos en la cartola de Banco de Chile.');
     return null;
   }
 
-  const transactions = best.transactions;
   transactions.sort((a, b) => a._sortKey.localeCompare(b._sortKey));
-  const fechaDesde = transactions[0].fecha;
-  const fechaHasta = transactions[transactions.length - 1].fecha;
+  fechaDesde = transactions[0].fecha;
+  fechaHasta = transactions[transactions.length-1].fecha;
+
+  // Compute saldo final from last saldo if available, else estimate
   const pd = parsePeriodoFromDates(fechaDesde, fechaHasta);
 
   return {
     mes: pd.mes,
     anio: pd.anio,
-    saldoInicial: best.saldoInicial || 0,
-    saldoFinal: best.saldoFinal != null ? best.saldoFinal : 0,
+    saldoInicial: saldoInicial || 0,
+    saldoFinal: saldoFinal || 0,
     fechaDesde: pd.fechaDesde,
     fechaHasta: pd.fechaHasta,
     mesNombre: pd.mesNombre,
     banco: 'Banco de Chile',
-    numCartola: best.numCuenta || '000',
+    numCartola: numCuenta || '000',
     transactions,
   };
 }
@@ -1691,9 +1446,6 @@ function parseItau(wb) {
 
     if (abonoNum === 0 && cargoNum === 0) continue;
 
-    const saldoStr = String(row[6] != null ? row[6] : '').trim();
-    const saldoDiario = (saldoStr !== '' && saldoStr !== '-') ? parseNum(row[6]) : null;
-
     transactions.push({
       fecha: fechaFmt,
       tipo: abonoNum > 0 ? 'DP' : 'CB',
@@ -1702,7 +1454,6 @@ function parseItau(wb) {
       abono: abonoNum > 0 ? abonoNum : null,
       desc: String(desc || ''),
       _sortKey: fechaFmt.split('/').reverse().join(''),
-      _saldoDiario: saldoDiario,
     });
   }
 
@@ -1715,22 +1466,13 @@ function parseItau(wb) {
   if (!fechaDesde) fechaDesde = transactions[0].fecha;
   if (!fechaHasta) fechaHasta = transactions[transactions.length-1].fecha;
 
-  let saldoFinalStmt = null;
-  for (let i = transactions.length - 1; i >= 0; i--) {
-    const s = transactions[i]._saldoDiario;
-    if (s != null && !isNaN(s)) {
-      saldoFinalStmt = s;
-      break;
-    }
-  }
-
   const pd = parsePeriodoFromDates(fechaDesde, fechaHasta);
 
   return {
     mes: pd.mes,
     anio: pd.anio,
     saldoInicial: saldoInicial || 0,
-    saldoFinal: saldoFinalStmt != null ? saldoFinalStmt : (saldoFinal || 0),
+    saldoFinal: saldoFinal || 0,
     fechaDesde: pd.fechaDesde,
     fechaHasta: pd.fechaHasta,
     mesNombre: pd.mesNombre,
@@ -1740,52 +1482,36 @@ function parseItau(wb) {
   };
 }
 
-// ─── SCOTIABANK — columnas por encabezado (ej. datos desde col. B; hoja "Data") ──
-function mapScotiabankHeaderColumns(row) {
-  if (!row || !row.length) return null;
-  const idx = {};
-  for (let j = 0; j < row.length; j++) {
-    const s = normChileHeader(row[j]);
-    if (!s) continue;
-    if (idx.fecha === undefined && (s === 'fecha' || (s.includes('fecha') && s.length < 30 && !s.match(/^\d/)))) idx.fecha = j;
-    if (idx.desc === undefined && (s.includes('descrip') || s.includes('descripcion'))) idx.desc = j;
-    if (idx.nDoc === undefined && ((s.includes('doc') && !s.includes('descri')) || s.includes('n°') || (s.includes('nro') && s.includes('doc')))) idx.nDoc = j;
-    if (idx.cargo === undefined && s.includes('cargo')) idx.cargo = j;
-    if (idx.abono === undefined && s.includes('abono')) idx.abono = j;
-    if (idx.saldo === undefined && s.includes('saldo') && !s.includes('disponible') && !s.includes('contable')) idx.saldo = j;
-  }
-  if (idx.fecha === undefined || idx.desc === undefined || idx.cargo === undefined || idx.abono === undefined || idx.saldo === undefined) return null;
-  if (!(idx.fecha < idx.cargo && idx.cargo < idx.saldo)) return null;
-  return idx;
-}
+// ─── SCOTIABANK PARSER ────────────────────────────────────────────────────────
+function parseScotiabank(wb) {
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
 
-function parseScotiabankFromRows(rows) {
-  let saldoInicial = null;
-  let saldoFinal = null;
-  let fechaDesde = null;
-  let fechaHasta = null;
-  const transactions = [];
-  let headerRow = -1;
-  let colMap = null;
+  let saldoInicial = null, saldoFinal = null;
+  let fechaDesde = null, fechaHasta = null;
+  let transactions = [];
+  let detailStart = -1;
 
   for (let i = 0; i < rows.length; i++) {
-    const row = rows[i] || [];
+    const row = rows[i];
     const joined = row.filter(Boolean).join(' ').toLowerCase();
 
+    // Desde / Hasta
     if (joined.includes('desde')) {
-      for (let j = 0; j < row.length; j++) {
-        if (String(row[j] || '').toLowerCase() === 'desde' && row[j + 1]) {
-          const v = String(row[j + 1]);
+      for (let j=0; j<row.length; j++) {
+        if (String(row[j]||'').toLowerCase() === 'desde' && row[j+1]) {
+          const v = String(row[j+1]);
+          // Format: 20260201
           if (v.match(/^\d{8}$/)) {
-            fechaDesde = v.slice(6, 8) + '/' + v.slice(4, 6) + '/' + v.slice(0, 4);
+            fechaDesde = v.slice(6,8)+'/'+v.slice(4,6)+'/'+v.slice(0,4);
           } else {
             fechaDesde = formatDate(v);
           }
         }
-        if (String(row[j] || '').toLowerCase() === 'hasta' && row[j + 1]) {
-          const v = String(row[j + 1]);
+        if (String(row[j]||'').toLowerCase() === 'hasta' && row[j+1]) {
+          const v = String(row[j+1]);
           if (v.match(/^\d{8}$/)) {
-            fechaHasta = v.slice(6, 8) + '/' + v.slice(4, 6) + '/' + v.slice(0, 4);
+            fechaHasta = v.slice(6,8)+'/'+v.slice(4,6)+'/'+v.slice(0,4);
           } else {
             fechaHasta = formatDate(v);
           }
@@ -1793,44 +1519,57 @@ function parseScotiabankFromRows(rows) {
       }
     }
 
-    const m = mapScotiabankHeaderColumns(row);
-    if (m) {
-      headerRow = i;
-      colMap = m;
-      break;
+    // Header: Fecha | Descripción | N° Doc. | Cargos | Abonos | Saldo
+    if (joined.includes('fecha') && joined.includes('descripci') && (joined.includes('cargo') || joined.includes('abono'))) {
+      detailStart = i + 1;
     }
   }
 
-  if (headerRow < 0 || !colMap) {
-    return { transactions: [], saldoInicial, saldoFinal, fechaDesde, fechaHasta };
+  if (detailStart < 0) {
+    showError('No se encontró el detalle de movimientos en la cartola de Scotiabank.');
+    return null;
   }
 
-  for (let i = headerRow + 1; i < rows.length; i++) {
-    const row = rows[i] || [];
-    if (!row.length || row.every(c => c === null || c === undefined || String(c).trim() === '')) continue;
+  // First transaction saldo - cargo/abono to get saldo inicial
+  for (let i = detailStart; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.every(c => c === null || c === '')) continue;
 
-    const fecha = row[colMap.fecha];
-    const desc = row[colMap.desc];
-    const nDocCell = colMap.nDoc !== undefined ? row[colMap.nDoc] : null;
-    const cargoRaw = row[colMap.cargo];
-    const abonoRaw = row[colMap.abono];
-    const saldoRaw = row[colMap.saldo];
+    // Scotiabank cols: Fecha | Descripción | N°Doc | Cargos | Abonos | Saldo
+    // BUT: some Scotiabank files have only Amount column with +/- sign
+    const fecha = row[0];
+    const desc = row[1];
+    const nDoc = row[2];
+    let cargo = null, abono = null;
 
-    if (fecha === null || fecha === undefined || fecha === '') continue;
+    // Check number of money columns
+    const cargoRaw = row[3];
+    const abonoRaw = row[4];
+    const saldoRaw = row[5];
+
+    if (!fecha) continue;
     const fechaFmt = formatDate(fecha);
-    if (!fechaFmt || !fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
+    // Handle format dd-mm-yyyy from Scotiabank
+    if (!fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
 
     const cargoNum = parseNum(cargoRaw);
     const abonoNum = parseNum(abonoRaw);
 
-    let finalCargo = 0;
-    let finalAbono = 0;
+    // Scotiabank: negative values in saldo column indicate direction
+    // Some entries have cargo (negative in abonos) or abono (positive)
+    // The amount sign: positive = abono, negative = cargo
+    let finalCargo = 0, finalAbono = 0;
 
     if (cargoNum !== 0 || abonoNum !== 0) {
+      // Both columns present
+      // Scotiabank: Cargos column has negative for cargo, Abonos has positive
       finalCargo = cargoNum < 0 ? Math.abs(cargoNum) : 0;
       finalAbono = abonoNum > 0 ? abonoNum : 0;
+
+      // If Cargos > 0, it's actually a cargo (positive amounts in cargo column)
       if (cargoNum > 0) finalCargo = cargoNum;
-    } else if (cargoRaw !== null && cargoRaw !== undefined && abonoRaw === null) {
+    } else if (cargoRaw !== null && abonoRaw === null) {
+      // Single amount column
       const amt = parseNum(cargoRaw);
       if (amt < 0) finalCargo = Math.abs(amt);
       else if (amt > 0) finalAbono = amt;
@@ -1838,56 +1577,38 @@ function parseScotiabankFromRows(rows) {
 
     if (finalCargo === 0 && finalAbono === 0) continue;
 
-    const nDocDigits = parseInt(String(nDocCell || '').replace(/\D/g, ''), 10);
-    const nDocOut = !isNaN(nDocDigits) && nDocDigits > 0 ? nDocDigits : extractDocNumber(fechaFmt);
-
     transactions.push({
       fecha: fechaFmt,
       tipo: finalAbono > 0 ? 'DP' : 'CB',
-      nDoc: nDocOut,
+      nDoc: extractDocNumber(fechaFmt),
       cargo: finalCargo > 0 ? finalCargo : null,
       abono: finalAbono > 0 ? finalAbono : null,
       desc: String(desc || ''),
       _sortKey: fechaFmt.split('/').reverse().join(''),
     });
 
-    if (saldoRaw !== null && saldoRaw !== undefined && String(saldoRaw).trim() !== '') {
+    // Track saldo final
+    if (saldoRaw !== null && saldoRaw !== undefined) {
       saldoFinal = parseNum(saldoRaw);
     }
   }
 
-  return { transactions, saldoInicial, saldoFinal, fechaDesde, fechaHasta };
-}
-
-function parseScotiabank(wb) {
-  let best = null;
-  for (const sn of wb.SheetNames) {
-    const ws = wb.Sheets[sn];
-    if (!ws) continue;
-    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false });
-    const r = parseScotiabankFromRows(rows);
-    if (r.transactions.length > (best ? best.transactions.length : 0)) best = r;
-  }
-
-  if (!best || best.transactions.length === 0) {
-    showError('No se encontró el detalle de movimientos en la cartola de Scotiabank (revisé todas las hojas).');
+  if (transactions.length === 0) {
+    showError('No se encontraron movimientos en la cartola de Scotiabank.');
     return null;
   }
 
-  const transactions = best.transactions;
   transactions.sort((a, b) => a._sortKey.localeCompare(b._sortKey));
-  let fechaDesde = best.fechaDesde;
-  let fechaHasta = best.fechaHasta;
   if (!fechaDesde) fechaDesde = transactions[0].fecha;
-  if (!fechaHasta) fechaHasta = transactions[transactions.length - 1].fecha;
+  if (!fechaHasta) fechaHasta = transactions[transactions.length-1].fecha;
 
   const pd = parsePeriodoFromDates(fechaDesde, fechaHasta);
 
   return {
     mes: pd.mes,
     anio: pd.anio,
-    saldoInicial: best.saldoInicial || 0,
-    saldoFinal: best.saldoFinal || 0,
+    saldoInicial: saldoInicial || 0,
+    saldoFinal: saldoFinal || 0,
     fechaDesde: pd.fechaDesde,
     fechaHasta: pd.fechaHasta,
     mesNombre: pd.mesNombre,
@@ -2010,17 +1731,7 @@ function parseNum(v) {
 }
 
 function formatDate(v) {
-  if (v === null || v === undefined) return '';
-  if (typeof v === 'number' && !isNaN(v) && v > 20000 && v < 1200000) {
-    if (typeof XLSX !== 'undefined' && XLSX.SSF && typeof XLSX.SSF.parse_date_code === 'function') {
-      try {
-        const o = XLSX.SSF.parse_date_code(v);
-        if (o && o.y > 1900 && o.y < 2100) {
-          return `${String(o.d).padStart(2, '0')}/${String(o.m).padStart(2, '0')}/${o.y}`;
-        }
-      } catch (e) { /* continuar con reglas de texto */ }
-    }
-  }
+  if (!v) return '';
   const s = String(v).trim();
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
   // dd-mm-yyyy
