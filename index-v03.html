@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conversor de Cartola Bancaria — v3</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --bg: #fdf6f9;
+    --bg2: #fef0f5;
+    --surface: #ffffff;
+    --surface2: #fde8f2;
+    --border: #f0c9df;
+    --border2: #e8b4d0;
+    --pink: #e8559a;
+    --pink-light: #f5a8ce;
+    --pink-pale: #fce4f0;
+    --rose: #f06292;
+    --lavender: #ce93d8;
+    --lavender-light: #ead5f5;
+    --mint: #80cbc4;
+    --text: #3d2035;
+    --text2: #7a4060;
+    --muted: #b07898;
+    --danger: #e05577;
+    --success: #66bb6a;
+    --shadow: rgba(232, 85, 154, 0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rubik', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 60px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -120px; right: -120px;
+    width: 420px; height: 420px;
+    background: radial-gradient(circle, rgba(232,85,154,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -80px; left: -80px;
+    width: 340px; height: 340px;
+    background: radial-gradient(circle, rgba(206,147,216,0.1) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 760px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+
+  .logo-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pink);
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    background: var(--pink-pale);
+    border: 1px solid var(--pink-light);
+    border-radius: 20px;
+    padding: 5px 14px;
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    font-size: clamp(26px, 5vw, 40px);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  h1 span {
+    background: linear-gradient(135deg, var(--pink) 0%, var(--lavender) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 400;
+  }
+
+  /* ── STEP INDICATOR ── */
+  .steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 32px;
+  }
+
+  .step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+  }
+
+  .step-num {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    color: var(--muted);
+    transition: all 0.3s ease;
+    z-index: 1;
+  }
+
+  .step.active .step-num {
+    background: var(--pink);
+    border-color: var(--pink);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(232,85,154,0.35);
+  }
+
+  .step.done .step-num {
+    background: var(--success);
+    border-color: var(--success);
+    color: #fff;
+  }
+
+  .step-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .step.active .step-label { color: var(--pink); }
+  .step.done .step-label { color: var(--success); }
+
+  .step-line {
+    width: 60px; height: 2px;
+    background: var(--border);
+    margin-bottom: 20px;
+    transition: background 0.3s;
+  }
+
+  .step-line.done { background: var(--success); }
+
+  /* ── BANK SELECTOR ── */
+  .bank-selector {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 20px var(--shadow);
+  }
+
+  .selector-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 16px;
+  }
+
+  .bank-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+  }
+
+  .bank-btn {
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .bank-btn:hover {
+    border-color: var(--pink-light);
+    background: var(--pink-pale);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(232,85,154,0.12);
+  }
+
+  .bank-btn.selected {
+    border-color: var(--pink);
+    background: linear-gradient(135deg, rgba(232,85,154,0.07) 0%, rgba(206,147,216,0.08) 100%);
+    box-shadow: 0 4px 16px rgba(232,85,154,0.2);
+  }
+
+  .bank-logo { font-size: 26px; }
+
+  .bank-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    line-height: 1.3;
+  }
+
+  .bank-hint {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 20px;
+    padding: 44px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 20px var(--shadow);
+    display: none;
+  }
+
+  .upload-zone.visible { display: block; }
+
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(232,85,154,0.04) 0%, transparent 65%);
+    pointer-events: none;
+  }
+
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--pink);
+    background: var(--bg2);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(232,85,154,0.16);
+  }
+
+  .upload-zone.has-files {
+    border-color: var(--pink);
+    border-style: solid;
+    background: linear-gradient(135deg, rgba(232,85,154,0.03) 0%, rgba(206,147,216,0.04) 100%);
+  }
+
+  .upload-icon { font-size: 48px; margin-bottom: 12px; display: block; }
+  .upload-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+  .upload-sub { font-size: 13px; color: var(--muted); }
+
+  .files-list {
+    margin-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .file-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--pink-pale);
+    border: 1px solid var(--pink-light);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--pink);
+  }
+
+  .file-badge .remove-btn {
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .file-badge .remove-btn:hover { opacity: 1; }
+
+  #fileInput { display: none; }
+
+  /* ── INFO PANEL ── */
+  .info-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    display: none;
+    box-shadow: 0 2px 16px var(--shadow);
+  }
+
+  .info-panel.visible { display: block; }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+  }
+
+  .info-item {
+    background: var(--bg2);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+
+  .info-item label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 5px;
+  }
+
+  .info-item value {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--pink);
+  }
+
+  /* ── TRANSACTIONS TABLE ── */
+  .transactions-section { display: none; margin-bottom: 20px; }
+  .transactions-section.visible { display: block; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+  }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--lavender-light);
+    border: 1px solid #dbb8ec;
+    border-radius: 20px;
+    padding: 3px 10px;
+    color: #9c4fb5;
+  }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    overflow-x: auto;
+    box-shadow: 0 2px 16px var(--shadow);
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--surface2); }
+  th {
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #fce8f3;
+    color: var(--text2);
+    white-space: nowrap;
+    font-weight: 400;
+  }
+  tr:hover td { background: #fff8fc; }
+  tr:last-child td { border-bottom: none; }
+
+  .type-dp { color: var(--mint); font-weight: 700; }
+  .type-cb { color: var(--danger); font-weight: 700; }
+  .amount-abono { color: #3d9e6e; font-weight: 600; }
+  .amount-cargo { color: var(--danger); font-weight: 600; }
+
+  /* ── BUTTONS ── */
+  .btn-convert {
+    width: 100%;
+    padding: 17px;
+    background: linear-gradient(135deg, var(--pink) 0%, var(--lavender) 100%);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-family: 'Rubik', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: none;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 20px rgba(232,85,154,0.35);
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-convert::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+    transition: left 0.4s ease;
+  }
+  .btn-convert:hover::before { left: 100%; }
+  .btn-convert:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(232,85,154,0.4); }
+  .btn-convert.visible { display: block; }
+
+  /* ── DOWNLOAD CARDS ── */
+  .download-section {
+    display: none;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .download-section.visible { display: grid; grid-template-columns: 1fr 1fr; }
+
+  .download-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 18px;
+    text-align: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  .download-card:first-child:hover {
+    border-color: var(--pink);
+    background: var(--pink-pale);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(232,85,154,0.15);
+  }
+  .download-card:last-child:hover {
+    border-color: var(--lavender);
+    background: var(--lavender-light);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(206,147,216,0.2);
+  }
+  .download-icon { font-size: 30px; margin-bottom: 10px; }
+  .download-label { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .download-name { font-size: 11px; color: var(--muted); margin-bottom: 4px; word-break: break-word; line-height: 1.4; }
+  .download-type {
+    font-size: 10px; font-weight: 600; color: var(--pink);
+    text-transform: uppercase; letter-spacing: 1px;
+    background: var(--pink-pale); border-radius: 10px;
+    display: inline-block; padding: 2px 8px; margin-top: 4px;
+  }
+  .download-card:last-child .download-type { color: #9c4fb5; background: var(--lavender-light); }
+
+  /* ── MESSAGES ── */
+  .message {
+    padding: 13px 18px; border-radius: 12px;
+    font-size: 13px; font-weight: 500;
+    margin-bottom: 16px; display: none; line-height: 1.6;
+  }
+  .message.visible { display: block; }
+  .message.error { background: #fde8ed; border: 1px solid #f5b8c8; color: var(--danger); }
+  .message.success { background: #e8f8ee; border: 1px solid #a8dfb8; color: #2e7d4f; }
+  .message.warning { background: #fff8e1; border: 1px solid #ffe082; color: #b07d00; }
+
+  /* ── RESET BUTTON ── */
+  .btn-reset {
+    background: transparent;
+    border: 1.5px solid var(--border2);
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 11px 20px;
+    font-family: 'Rubik', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: none;
+    width: 100%;
+  }
+  .btn-reset.visible { display: block; }
+  .btn-reset:hover { border-color: var(--pink-light); color: var(--pink); background: var(--pink-pale); }
+
+  /* ── PERIOD INPUT OVERRIDE ── */
+  .period-override {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 24px;
+    margin-bottom: 20px;
+    display: none;
+    box-shadow: 0 2px 16px var(--shadow);
+  }
+  .period-override.visible { display: block; }
+  .period-override-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 14px;
+  }
+  .period-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .period-field label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .period-field input {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-family: 'Rubik', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    background: var(--bg);
+    outline: none;
+    transition: border 0.2s;
+  }
+  .period-field input:focus { border-color: var(--pink); }
+
+  footer {
+    margin-top: 48px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    opacity: 0.6;
+  }
+
+  @media (max-width: 480px) {
+    .download-section.visible { grid-template-columns: 1fr; }
+    .info-grid { grid-template-columns: 1fr 1fr; }
+    .period-grid { grid-template-columns: 1fr 1fr; }
+    .bank-grid { grid-template-columns: repeat(2, 1fr); }
+    .step-line { width: 30px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo-tag">🌸 Sistema Contable</div>
+    <h1>Conversor de <span>Cartola Bancaria</span></h1>
+    <p class="subtitle">Transforma cartolas de cualquier banco al formato de importación contable</p>
+  </header>
+
+  <!-- Step indicator -->
+  <div class="steps">
+    <div class="step active" id="step1">
+      <div class="step-num">1</div>
+      <div class="step-label">Banco</div>
+    </div>
+    <div class="step-line" id="line1"></div>
+    <div class="step active" id="step2">
+      <div class="step-num">2</div>
+      <div class="step-label">Archivos</div>
+    </div>
+    <div class="step-line" id="line2"></div>
+    <div class="step" id="step3">
+      <div class="step-num">3</div>
+      <div class="step-label">Resultado</div>
+    </div>
+  </div>
+
+  <!-- Bank Selector -->
+  <div class="bank-selector">
+    <div class="selector-title">Paso 1 — Selecciona el banco</div>
+    <div class="bank-grid">
+      <div class="bank-btn" onclick="selectBank('santander')" id="bank-santander">
+        <div class="bank-logo">🔴</div>
+        <div class="bank-name">Santander</div>
+        <div class="bank-hint">1 archivo</div>
+      </div>
+      <div class="bank-btn" onclick="selectBank('bci')" id="bank-bci">
+        <div class="bank-logo">🏦</div>
+        <div class="bank-name">BCI</div>
+        <div class="bank-hint">1 o más archivos</div>
+      </div>
+      <div class="bank-btn" onclick="selectBank('bancoestado')" id="bank-bancoestado">
+        <div class="bank-logo">🏛️</div>
+        <div class="bank-name">Banco Estado</div>
+        <div class="bank-hint">1 o más · hoja Movimientos</div>
+      </div>
+      <div class="bank-btn" onclick="selectBank('bancochile')" id="bank-bancochile">
+        <div class="bank-logo">🇨🇱</div>
+        <div class="bank-name">Banco de Chile</div>
+        <div class="bank-hint">1 archivo</div>
+      </div>
+      <div class="bank-btn" onclick="selectBank('itau')" id="bank-itau">
+        <div class="bank-logo">🔶</div>
+        <div class="bank-name">Itaú</div>
+        <div class="bank-hint">1 archivo</div>
+      </div>
+      <div class="bank-btn" onclick="selectBank('scotiabank')" id="bank-scotiabank">
+        <div class="bank-logo">🟥</div>
+        <div class="bank-name">Scotiabank</div>
+        <div class="bank-hint">1 archivo</div>
+      </div>
+      <div class="bank-btn" onclick="selectBank('otro')" id="bank-otro">
+        <div class="bank-logo">🏧</div>
+        <div class="bank-name">Otro banco</div>
+        <div class="bank-hint">Auto-detect</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Zone -->
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+    <span class="upload-icon">📊</span>
+    <div class="upload-title" id="uploadTitle">Arrastra tu cartola aquí</div>
+    <div class="upload-sub" id="uploadSub">o haz click para seleccionar archivo</div>
+    <div class="upload-sub" id="uploadHint" style="margin-top:8px; font-size:12px;"></div>
+    <div class="files-list" id="filesList"></div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" multiple>
+  </div>
+
+  <!-- Period Override (for BCI multi-file) -->
+  <div class="period-override" id="periodOverride">
+    <div class="period-override-title">⚙️ Ajustes del período (opcional)</div>
+    <div class="period-grid">
+      <div class="period-field">
+        <label>N° Cartola</label>
+        <input type="text" id="overrideCartola" placeholder="ej: 172">
+      </div>
+      <div class="period-field">
+        <label>Fecha Desde</label>
+        <input type="text" id="overrideDesde" placeholder="dd/mm/yyyy">
+      </div>
+      <div class="period-field">
+        <label>Fecha Hasta</label>
+        <input type="text" id="overrideHasta" placeholder="dd/mm/yyyy">
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div class="message error" id="errorMsg"></div>
+  <div class="message success" id="successMsg"></div>
+  <div class="message warning" id="warningMsg"></div>
+
+  <!-- Info Panel -->
+  <div class="info-panel" id="infoPanel">
+    <div class="info-grid">
+      <div class="info-item"><label>Banco</label><value id="infoBanco">—</value></div>
+      <div class="info-item"><label>N° Cartola</label><value id="infoCartola">—</value></div>
+      <div class="info-item"><label>Período</label><value id="infoPeriodo">—</value></div>
+      <div class="info-item"><label>Saldo Inicial</label><value id="infoSaldoIni">—</value></div>
+      <div class="info-item"><label>Saldo Final</label><value id="infoSaldoFin">—</value></div>
+      <div class="info-item"><label>N° Movimientos</label><value id="infoMovs">—</value></div>
+    </div>
+  </div>
+
+  <!-- Transactions preview -->
+  <div class="transactions-section" id="txSection">
+    <div class="section-header">
+      <span class="section-title">Movimientos detectados</span>
+      <span class="badge" id="txCount">0 registros</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Fecha</th><th>Tipo</th><th>Doc</th><th>Cargo</th><th>Abono</th>
+          </tr>
+        </thead>
+        <tbody id="txBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Convert Button -->
+  <button class="btn-convert" id="btnConvert" onclick="generateOutputs()">
+    ⚡ Generar Archivos de Salida
+  </button>
+
+  <!-- Download Cards -->
+  <div class="download-section" id="downloadSection">
+    <div class="download-card" onclick="downloadXlsx()">
+      <div class="download-icon">📗</div>
+      <div class="download-label">Cartola Output</div>
+      <div class="download-name" id="nameXlsx">—</div>
+      <div class="download-type">.xlsx</div>
+    </div>
+    <div class="download-card" onclick="downloadTxt()">
+      <div class="download-icon">📄</div>
+      <div class="download-label">Output Final</div>
+      <div class="download-name" id="nameTxt">—</div>
+      <div class="download-type">.txt</div>
+    </div>
+  </div>
+
+  <!-- Reset -->
+  <button class="btn-reset" id="btnReset" onclick="resetAll()">↩ Procesar otro archivo</button>
+
+  <footer>
+    <div>Conversor Cartola Bancaria v3.0 — Multi-banco (Santander = lógica v1)</div>
+    <div>Hecho con ❤️ para mi Negrita</div>
+  </footer>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let parsedData = null;
+let xlsxBlob = null;
+let txtContent = null;
+let selectedBank = null;
+let uploadedFiles = [];
+let workbooks = [];
+
+// ─── Bank Selector ────────────────────────────────────────────────────────────
+function selectBank(bank) {
+  selectedBank = bank;
+  document.querySelectorAll('.bank-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('bank-' + bank).classList.add('selected');
+
+  const zone = document.getElementById('uploadZone');
+  zone.classList.add('visible');
+
+  const hints = {
+    santander:   { title: 'Arrastra la cartola Santander aquí', sub: 'Selecciona un archivo .xlsx o .xls', hint: 'Misma lógica que la versión 1 del conversor (Detalle movimientos)', multi: false },
+    bci:         { title: 'Arrastra las cartolas BCI aquí', sub: 'Selecciona uno o más archivos .xlsx / .xls', hint: 'Se unifican todos los archivos en un solo output', multi: true },
+    bancoestado: { title: 'Arrastra las cartolas Banco Estado', sub: 'Selecciona uno o más archivos .xlsx / .xls', hint: 'Los movimientos se leen desde la hoja "Movimientos" de cada archivo', multi: true },
+    bancochile:  { title: 'Arrastra la cartola Banco de Chile', sub: 'Selecciona el archivo .xls / .xlsx', hint: 'Cartola histórica de cuenta corriente', multi: false },
+    itau:        { title: 'Arrastra la cartola Itaú Empresas', sub: 'Selecciona el archivo .xlsx', hint: 'Cartola histórica — Detalle de Cartola Histórica', multi: false },
+    scotiabank:  { title: 'Arrastra la cartola Scotiabank', sub: 'Selecciona el archivo .xls / .xlsx', hint: 'Cartola con columna de abonos y cargos por signo', multi: false },
+    otro:        { title: 'Arrastra tu cartola bancaria', sub: 'Selecciona el archivo .xlsx / .xls', hint: 'Se intentará detectar el formato automáticamente', multi: false },
+  };
+
+  const h = hints[bank];
+  document.getElementById('uploadTitle').textContent = h.title;
+  document.getElementById('uploadSub').textContent = h.sub;
+  document.getElementById('uploadHint').textContent = h.hint;
+  document.getElementById('fileInput').multiple = h.multi;
+
+  // Show period override for BCI and Banco Estado multi-file
+  if (bank === 'bci' || bank === 'bancoestado') {
+    document.getElementById('periodOverride').classList.add('visible');
+  } else {
+    document.getElementById('periodOverride').classList.remove('visible');
+  }
+
+  clearMessages();
+  resetFilesOnly();
+}
+
+// ─── Drag & Drop ──────────────────────────────────────────────────────────────
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('dragover');
+  handleFiles(Array.from(e.dataTransfer.files));
+});
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files.length) handleFiles(Array.from(e.target.files));
+});
+
+function stopPropagation(e) { e.stopPropagation(); }
+
+// ─── File Handler ─────────────────────────────────────────────────────────────
+function handleFiles(files) {
+  if (!selectedBank) { showError('Por favor selecciona el banco primero.'); return; }
+  clearMessages();
+
+  const valid = files.filter(f => f.name.match(/\.(xlsx|xls)$/i));
+  if (valid.length === 0) { showError('Solo se aceptan archivos .xlsx o .xls'); return; }
+
+  const isMulti = ['bci','bancoestado'].includes(selectedBank);
+  if (!isMulti && valid.length > 1) {
+    showWarning('Solo se usará el primer archivo para este banco.');
+    uploadedFiles = [valid[0]];
+  } else {
+    uploadedFiles = valid;
+  }
+
+  zone.classList.add('has-files');
+  renderFilesList();
+
+  // Read all files
+  workbooks = [];
+  const promises = uploadedFiles.map(f => readWorkbook(f));
+  Promise.all(promises).then(wbs => {
+    workbooks = wbs;
+    parseAllFiles();
+  }).catch(err => {
+    showError('Error al leer archivos: ' + err.message);
+  });
+}
+
+function readWorkbook(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+        wb._filename = file.name;
+        resolve(wb);
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function renderFilesList() {
+  const list = document.getElementById('filesList');
+  list.innerHTML = '';
+  uploadedFiles.forEach((f, i) => {
+    const badge = document.createElement('span');
+    badge.className = 'file-badge';
+    badge.innerHTML = `📎 ${f.name} <span class="remove-btn" onclick="removeFile(${i}, event)">✕</span>`;
+    list.appendChild(badge);
+  });
+}
+
+function removeFile(i, e) {
+  e.stopPropagation();
+  uploadedFiles.splice(i, 1);
+  workbooks.splice(i, 1);
+  if (uploadedFiles.length === 0) {
+    zone.classList.remove('has-files');
+    resetPreview();
+  } else {
+    renderFilesList();
+    parseAllFiles();
+  }
+}
+
+// ─── MAIN PARSER DISPATCHER ───────────────────────────────────────────────────
+function parseAllFiles() {
+  if (workbooks.length === 0) return;
+  clearMessages();
+
+  try {
+    let result;
+    switch(selectedBank) {
+      case 'santander':   result = parseSantanderCartola(workbooks[0]); break;
+      case 'bci':         result = parseBCI(workbooks); break;
+      case 'bancoestado': result = parseBancoEstado(workbooks); break;
+      case 'bancochile':  result = parseBancoChile(workbooks[0]); break;
+      case 'itau':        result = parseItau(workbooks[0]); break;
+      case 'scotiabank':  result = parseScotiabank(workbooks[0]); break;
+      default:            result = parseGeneric(workbooks[0]); break;
+    }
+
+    if (!result) return;
+    parsedData = result;
+    renderPreview();
+  } catch(err) {
+    showError('Error al procesar: ' + err.message);
+    console.error(err);
+  }
+}
+
+// ─── SANTANDER — misma lógica que index.html v1 (parseCartola) ───────────────
+function formatDateSantander(v) {
+  if (!v) return '';
+  const s = String(v);
+  if (/\d{2}\/\d{2}\/\d{4}/.test(s)) return s;
+  const d = new Date(s);
+  if (!isNaN(d)) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  return s;
+}
+
+function parsePeriodoSantander(desde, hasta) {
+  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  let mes = 2, anio = 2026;
+  let fechaDesde = '01-02-2026', fechaHasta = '28-02-2026';
+  let mesNombre = 'Febrero';
+
+  if (desde) {
+    const s = String(desde);
+    const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (m) {
+      mes = parseInt(m[2]);
+      anio = parseInt(m[3]);
+      fechaDesde = `01-${m[2]}-${m[3]}`;
+      mesNombre = meses[mes - 1] || String(mes);
+    }
+  }
+  if (hasta) {
+    const s = String(hasta);
+    const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (m) {
+      const lastDay = new Date(parseInt(m[3]), parseInt(m[2]), 0).getDate();
+      fechaHasta = `${String(lastDay).padStart(2,'0')}-${m[2]}-${m[3]}`;
+    }
+  }
+  return { mes, anio, fechaDesde, fechaHasta, mesNombre };
+}
+
+function parseSantanderCartola(wb) {
+  const sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false });
+
+  let detailStart = -1;
+  let summaryStart = -1;
+  let saldoInicialRow = -1;
+  let saldoFinalVal = null;
+  let saldoInicialVal = null;
+  let fechaDesde = null, fechaHasta = null;
+  let numCartola = null;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const joined = row.filter(Boolean).join(' ').toLowerCase();
+
+    if (joined.includes('saldo inicial') && joined.includes('saldo final')) {
+      saldoInicialRow = i + 1;
+    }
+    if (joined.includes('detalle movimientos')) {
+      detailStart = i + 2;
+    }
+    if (joined.includes('resumen comisiones')) {
+      summaryStart = i;
+    }
+    if (joined.includes('número cartola') || joined.includes('numero cartola') || joined.includes('n° cartola') || joined.includes('cartola:')) {
+      const r = rows[i];
+      for (let j = 0; j < r.length; j++) {
+        const cell = String(r[j] || '').toLowerCase();
+        if (cell.includes('cartola')) {
+          const numMatch = String(r[j]).match(/[\d]+/);
+          if (numMatch) { numCartola = numMatch[0]; break; }
+          if (r[j+1] !== null && r[j+1] !== undefined) {
+            numCartola = String(r[j+1]).replace(/\D/g,'') || String(r[j+1]);
+            break;
+          }
+        }
+      }
+    }
+    if (joined.includes('fecha desde')) {
+      const r = rows[i];
+      for (let j = 0; j < r.length; j++) {
+        if (String(r[j]).toLowerCase().includes('fecha desde')) fechaDesde = r[j + 1] || null;
+        if (String(r[j]).toLowerCase().includes('fecha hasta')) fechaHasta = r[j + 1] || null;
+      }
+    }
+  }
+
+  if (saldoInicialRow >= 0) {
+    const r = rows[saldoInicialRow];
+    saldoInicialVal = parseNum(r[0]);
+    saldoFinalVal = parseNum(r[6]);
+  }
+
+  if (detailStart < 0) {
+    showError('No se encontró la sección "Detalle movimientos" en el archivo.');
+    return null;
+  }
+
+  const transactions = [];
+  const dataEnd = summaryStart >= 0 ? summaryStart : rows.length;
+
+  for (let i = detailStart; i < dataEnd; i++) {
+    const row = rows[i];
+    if (!row || row.every(c => c === null)) continue;
+    const monto = row[0];
+    const desc = row[1];
+    const fecha = row[3];
+    const tipo = row[7];
+
+    if (!monto || !fecha) continue;
+
+    const montoNum = parseFloat(String(monto).replace(/[^0-9.-]/g, ''));
+    if (isNaN(montoNum)) continue;
+
+    const isAbono = String(tipo || '').toUpperCase().trim() === 'A';
+    const isCargo = String(tipo || '').toUpperCase().trim() === 'C' || montoNum < 0;
+    const fd = formatDateSantander(fecha);
+
+    transactions.push({
+      fecha: fd,
+      tipo: isCargo ? 'CB' : 'DP',
+      nDoc: extractDocNumber(fd),
+      cargo: isCargo ? Math.abs(montoNum) : null,
+      abono: isAbono ? Math.abs(montoNum) : null,
+      desc: String(desc || ''),
+    });
+  }
+
+  if (transactions.length === 0) {
+    showError('No se encontraron movimientos en el archivo.');
+    return null;
+  }
+
+  const pd = parsePeriodoSantander(fechaDesde, fechaHasta);
+
+  return {
+    mes: pd.mes,
+    anio: pd.anio,
+    saldoInicial: saldoInicialVal || 0,
+    saldoFinal: saldoFinalVal || 0,
+    fechaDesde: pd.fechaDesde,
+    fechaHasta: pd.fechaHasta,
+    mesNombre: pd.mesNombre,
+    banco: 'Santander',
+    numCartola: numCartola || '000',
+    transactions,
+  };
+}
+
+// ─── BCI — columnas por encabezado (huecos: Fecha, Sucursal, Descripción…; "Cheques y otros cargos" / "Depósitos y Abono")
+function mapBCIHeaderColumns(row) {
+  if (!row || !row.length) return null;
+  const idx = {};
+  for (let j = 0; j < row.length; j++) {
+    const s = normChileHeader(row[j]);
+    if (!s) continue;
+    if (idx.fecha === undefined && (s === 'fecha' || (s.includes('fecha') && s.length < 30 && !s.match(/^\d/)))) idx.fecha = j;
+    if (idx.desc === undefined && (s.includes('descrip') || s.includes('descripcion'))) idx.desc = j;
+    if (idx.nDoc === undefined && ((s.includes('documento') && !s.includes('descri')) || (s.includes('n°') && s.includes('doc')))) idx.nDoc = j;
+    if (idx.cargo === undefined && (s.includes('cheque') || (s.includes('otros') && s.includes('cargo')))) idx.cargo = j;
+    if (idx.cargo === undefined && s.includes('cargo') && !s.includes('abono') && !s.includes('deposito')) idx.cargo = j;
+    if (idx.abono === undefined && (s.includes('deposito') || (s.includes('abono') && s.includes('deposit')))) idx.abono = j;
+    if (idx.abono === undefined && s === 'abono') idx.abono = j;
+    if (idx.saldo === undefined && s.includes('saldo') && (s.includes('diario') || s.includes('dia'))) idx.saldo = j;
+  }
+  if (idx.fecha === undefined || idx.desc === undefined || idx.cargo === undefined || idx.abono === undefined) return null;
+  if (!(idx.fecha < idx.cargo && idx.cargo < idx.abono)) return null;
+  return idx;
+}
+
+function findBCIDataStart(rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const m = mapBCIHeaderColumns(rows[i]);
+    if (m) return { headerRow: i, colMap: m };
+  }
+  let detailStart = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const joined = (rows[i] || []).filter(Boolean).join(' ').toLowerCase();
+    if (
+      joined.includes('movimientos cuenta corriente') ||
+      (joined.includes('movimientos') && joined.includes('cuenta') && joined.includes('corriente'))
+    ) {
+      detailStart = i + 2;
+      if (rows[i + 1]) {
+        const j1 = rows[i + 1].filter(Boolean).join(' ').toLowerCase();
+        if (j1.includes('fecha') && (j1.includes('descripci') || j1.includes('sucursal') || j1.includes('documento'))) {
+          detailStart = i + 2;
+        } else if (rows[i + 2]) {
+          const j2 = rows[i + 2].filter(Boolean).join(' ').toLowerCase();
+          if (j2.includes('fecha')) detailStart = i + 3;
+        }
+      }
+      break;
+    }
+  }
+  if (detailStart < 0) {
+    for (let i = 0; i < rows.length; i++) {
+      const jrow = (rows[i] || []).filter(Boolean).join(' ').toLowerCase();
+      if (
+        jrow.includes('fecha') &&
+        (jrow.includes('descripci') || jrow.includes('descripcion')) &&
+        (jrow.includes('cargo') || jrow.includes('abono') || jrow.includes('dep') || jrow.includes('cheque'))
+      ) {
+        detailStart = i + 1;
+        break;
+      }
+    }
+  }
+  if (detailStart <= 0) return null;
+  const headerRow = detailStart - 1;
+  const m = mapBCIHeaderColumns(rows[headerRow]);
+  if (m) return { headerRow, colMap: m };
+  return null;
+}
+
+// ─── BCI PARSER (uno o más archivos) ─────────────────────────────────────────
+function parseBCI(wbs) {
+  let allTransactions = [];
+  let saldoInicial = null;
+  let saldoFinal = null;
+  let fechaDesde = null;
+  let fechaHasta = null;
+  let numCuenta = '';
+
+  const parsed = wbs.map(wb => {
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
+    return { wb, rows };
+  });
+
+  parsed.forEach((p, idx) => {
+    const rows = p.rows;
+    let periodoStr = null;
+    let saldoAnterior = null;
+    let saldoFinalPeriod = null;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const joined = row.filter(Boolean).join(' ').toLowerCase();
+
+      if (joined.includes('n° de cuenta') || joined.includes('n de cuenta')) {
+        for (let j=0; j<row.length; j++) {
+          if (String(row[j]||'').toLowerCase().includes('cuenta')) {
+            if (row[j+1]) { numCuenta = String(row[j+1]); break; }
+          }
+        }
+      }
+
+      if (joined.includes('periodo')) {
+        for (let j = 0; j < row.length; j++) {
+          const cell = String(row[j] || '');
+          if (cell.match(/\d{2}-\d{2}-\d{4}\s+al\s+\d{2}-\d{2}-\d{4}/)) {
+            periodoStr = cell;
+            break;
+          }
+          if (String(row[j] || '').toLowerCase().trim() === 'periodo' && row[j + 1]) {
+            const v = String(row[j + 1]);
+            if (v.match(/\d{2}-\d{2}-\d{4}\s+al\s+\d{2}-\d{2}-\d{4}/)) periodoStr = v;
+            else if (v.match(/\d{2}-\d{2}-\d{4}/)) periodoStr = v;
+          }
+        }
+      }
+
+      if (i > 0 && rows[i-1] && rows[i-1].filter(Boolean).join(' ').toLowerCase().includes('saldo anterior')) {
+        saldoAnterior = parseNum(rows[i][1]);
+        saldoFinalPeriod = parseNum(rows[i][4]);
+      }
+    }
+
+    if (periodoStr) {
+      const m = periodoStr.match(/(\d{2}-\d{2}-\d{4})\s+al\s+(\d{2}-\d{2}-\d{4})/);
+      if (m) {
+        if (idx === 0 || !fechaDesde) fechaDesde = m[1].replace(/-/g,'/');
+        fechaHasta = m[2].replace(/-/g,'/');
+      }
+    }
+
+    if (idx === 0) saldoInicial = saldoAnterior;
+    saldoFinal = saldoFinalPeriod;
+
+    const found = findBCIDataStart(rows);
+    if (!found) return;
+
+    const { headerRow, colMap } = found;
+    for (let i = headerRow + 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.every(c => c === null || c === undefined || c === '')) continue;
+
+      const fecha = row[colMap.fecha];
+      const desc = row[colMap.desc];
+      const cargo = row[colMap.cargo];
+      const abono = row[colMap.abono];
+      const nDocCell = colMap.nDoc !== undefined ? row[colMap.nDoc] : null;
+
+      if (fecha === null || fecha === undefined || fecha === '') continue;
+      const fechaFmt = formatDate(fecha);
+      if (!fechaFmt || !fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
+
+      const cargoNum = parseNum(cargo);
+      const abonoNum = parseNum(abono);
+      if (cargoNum === 0 && abonoNum === 0) continue;
+
+      const nDocDigits = parseInt(String(nDocCell || '').replace(/\D/g, ''), 10);
+      const nDocOut = !isNaN(nDocDigits) && nDocDigits > 0 ? nDocDigits : extractDocNumber(fechaFmt);
+
+      allTransactions.push({
+        fecha: fechaFmt,
+        tipo: abonoNum > 0 ? 'DP' : 'CB',
+        nDoc: nDocOut,
+        cargo: cargoNum > 0 ? cargoNum : null,
+        abono: abonoNum > 0 ? abonoNum : null,
+        desc: String(desc || ''),
+        _sortKey: fechaFmt.split('/').reverse().join(''),
+      });
+    }
+  });
+
+  if (allTransactions.length === 0) {
+    showError('No se encontraron movimientos en los archivos BCI.');
+    return null;
+  }
+
+  // Sort by date
+  allTransactions.sort((a, b) => a._sortKey.localeCompare(b._sortKey));
+
+  // Apply period override if set
+  const overDesde = document.getElementById('overrideDesde').value.trim();
+  const overHasta = document.getElementById('overrideHasta').value.trim();
+  const overCartola = document.getElementById('overrideCartola').value.trim();
+  if (overDesde) fechaDesde = overDesde;
+  if (overHasta) fechaHasta = overHasta;
+
+  // Compute period from transactions if not set
+  if (!fechaDesde && allTransactions.length > 0) {
+    fechaDesde = allTransactions[0].fecha;
+  }
+  if (!fechaHasta && allTransactions.length > 0) {
+    fechaHasta = allTransactions[allTransactions.length-1].fecha;
+  }
+
+  const pd = parsePeriodoFromDates(fechaDesde, fechaHasta);
+
+  return {
+    mes: pd.mes,
+    anio: pd.anio,
+    saldoInicial: saldoInicial || 0,
+    saldoFinal: saldoFinal || 0,
+    fechaDesde: pd.fechaDesde,
+    fechaHasta: pd.fechaHasta,
+    mesNombre: pd.mesNombre,
+    banco: 'BCI',
+    numCartola: overCartola || numCuenta || '000',
+    transactions: allTransactions,
+  };
+}
+
+// ─── BANCO ESTADO PARSER (uno o más archivos, hoja Movimientos) ───────────────
+function parseBancoEstado(wbs) {
+  let allTransactions = [];
+  let saldoInicial = null;
+  let saldoFinal = null;
+  let fechaDesde = null;
+  let fechaHasta = null;
+  let numCartola = null;
+  let numCuenta = null;
+
+  for (let idx = 0; idx < wbs.length; idx++) {
+    const wb = wbs[idx];
+    let resumenSheet = null;
+    let movSheet = null;
+    for (const sn of wb.SheetNames) {
+      if (sn.toLowerCase().includes('resumen')) resumenSheet = sn;
+    }
+    if (wb.SheetNames.includes('Movimientos')) {
+      movSheet = 'Movimientos';
+    } else {
+      for (const sn of wb.SheetNames) {
+        if (sn.toLowerCase().includes('movimiento')) {
+          movSheet = sn;
+          break;
+        }
+      }
+    }
+
+    if (!movSheet) {
+      showError('No se encontró la hoja "Movimientos" en el archivo: ' + (wb._filename || '(sin nombre)') + '.');
+      return null;
+    }
+
+    if (resumenSheet) {
+      const ws = wb.Sheets[resumenSheet];
+      const rowsMeta = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
+      for (let i = 0; i < rowsMeta.length; i++) {
+        const row = rowsMeta[i];
+        const joined = row.filter(Boolean).join(' ').toLowerCase();
+
+        if (joined.includes('n° cuenta corriente') || joined.includes('n° de cuenta')) {
+          for (let j=0; j<row.length; j++) {
+            if (String(row[j]||'').toLowerCase().includes('cuenta')) {
+              if (row[j+1]) numCuenta = String(row[j+1]);
+            }
+          }
+        }
+
+        if (joined.includes('n° cartola') || joined.includes('cartola')) {
+          const r = rowsMeta[i];
+          for (let j=0; j<r.length; j++) {
+            if (String(r[j]||'').toLowerCase().includes('cartola')) {
+              const v = rowsMeta[i+1] ? rowsMeta[i+1][j] : r[j+1];
+              if (v !== null && v !== undefined) { numCartola = String(v); break; }
+              if (r[j+1] !== null && r[j+1] !== undefined) { numCartola = String(r[j+1]); break; }
+            }
+          }
+        }
+
+        if (joined.includes('fecha inicio')) {
+          for (let j=0; j<row.length; j++) {
+            if (String(row[j]||'').toLowerCase().includes('inicio') && row[j+1]) {
+              if (idx === 0 || !fechaDesde) fechaDesde = String(row[j+1]);
+            }
+          }
+        }
+        if (joined.includes('fecha final')) {
+          for (let j=0; j<row.length; j++) {
+            if (String(row[j]||'').toLowerCase().includes('final') && row[j+1]) {
+              fechaHasta = String(row[j+1]);
+            }
+          }
+        }
+
+        if (joined.includes('saldo inicial')) {
+          for (let j=0; j<row.length; j++) {
+            if (String(row[j]||'').toLowerCase().includes('saldo inicial') && row[j+1]) {
+              if (idx === 0) saldoInicial = parseNum(row[j+1]);
+            }
+          }
+        }
+        if (joined.includes('saldo final')) {
+          for (let j=0; j<row.length; j++) {
+            if (String(row[j]||'').toLowerCase().includes('saldo final') && row[j+1]) {
+              saldoFinal = parseNum(row[j+1]);
+            }
+          }
+        }
+      }
+    }
+
+    const movWs = wb.Sheets[movSheet];
+    if (!movWs) {
+      showError('No se pudo leer la hoja "Movimientos" en: ' + (wb._filename || '') + '.');
+      return null;
+    }
+
+    const rows = XLSX.utils.sheet_to_json(movWs, { header:1, defval:null, raw:false });
+    let dataStart = 1;
+    for (let i=0; i<rows.length; i++) {
+      const joined = rows[i].filter(Boolean).join(' ').toLowerCase();
+      if (joined.includes('fecha') && (joined.includes('descripci') || joined.includes('cargo') || joined.includes('abono'))) {
+        dataStart = i + 1;
+        break;
+      }
+    }
+
+    for (let i = dataStart; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.every(c => c === null || c === '')) continue;
+      const fecha = row[0];
+      const desc = row[6];
+      const cargo = row[7];
+      const abono = row[8];
+
+      if (!fecha) continue;
+      const fechaFmt = formatDate(fecha);
+      if (!fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
+
+      const cargoNum = parseNum(cargo);
+      const abonoNum = parseNum(abono);
+      if (cargoNum === 0 && abonoNum === 0) continue;
+
+      allTransactions.push({
+        fecha: fechaFmt,
+        tipo: abonoNum > 0 ? 'DP' : 'CB',
+        nDoc: extractDocNumber(fechaFmt),
+        cargo: cargoNum > 0 ? cargoNum : null,
+        abono: abonoNum > 0 ? abonoNum : null,
+        desc: String(desc || ''),
+        _sortKey: fechaFmt.split('/').reverse().join(''),
+      });
+    }
+  }
+
+  if (allTransactions.length === 0) {
+    showError('No se encontraron movimientos en los archivos de Banco Estado.');
+    return null;
+  }
+
+  allTransactions.sort((a, b) => a._sortKey.localeCompare(b._sortKey));
+
+  const overDesde = document.getElementById('overrideDesde').value.trim();
+  const overHasta = document.getElementById('overrideHasta').value.trim();
+  const overCartola = document.getElementById('overrideCartola').value.trim();
+  if (overDesde) fechaDesde = overDesde;
+  if (overHasta) fechaHasta = overHasta;
+
+  if (!fechaDesde && allTransactions.length > 0) fechaDesde = allTransactions[0].fecha;
+  if (!fechaHasta && allTransactions.length > 0) fechaHasta = allTransactions[allTransactions.length-1].fecha;
+
+  const pd = parsePeriodoFromDates(fechaDesde, fechaHasta);
+
+  return {
+    mes: pd.mes,
+    anio: pd.anio,
+    saldoInicial: saldoInicial || 0,
+    saldoFinal: saldoFinal || 0,
+    fechaDesde: pd.fechaDesde,
+    fechaHasta: pd.fechaHasta,
+    mesNombre: pd.mesNombre,
+    banco: 'Banco Estado',
+    numCartola: overCartola || numCartola || '000',
+    transactions: allTransactions,
+  };
+}
+
+// ─── BANCO DE CHILE — encabezado en cualquier fila/columna (6 o 7 columnas) ──
+function normChileHeader(v) {
+  return String(v || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+/** Índices de columna por etiqueta de encabezado (cartolas con columnas vacías intercaladas, ej. Fecha en B y Descripción en D). */
+function mapChileHeaderColumns(row) {
+  if (!row || !row.length) return null;
+  const idx = {};
+  for (let j = 0; j < row.length; j++) {
+    const s = normChileHeader(row[j]);
+    if (!s) continue;
+    if (idx.fecha === undefined && (s === 'fecha' || (s.includes('fecha') && s.length < 35 && !s.match(/^\d/)))) idx.fecha = j;
+    if (idx.desc === undefined && (s.includes('descrip') || s.includes('descripcion'))) idx.desc = j;
+    if (idx.canal === undefined && (s.includes('canal') || s.includes('sucursal'))) idx.canal = j;
+    if (idx.nDoc === undefined && (s.includes('docto') || (s.includes('documento') && s.includes('numero')) || (s.includes('numero') && s.includes('document')))) idx.nDoc = j;
+    if (idx.cargo === undefined && s.includes('cargo')) idx.cargo = j;
+    if (idx.abono === undefined && s.includes('abono')) idx.abono = j;
+    if (idx.saldo === undefined && s.includes('saldo') && !s.includes('disponible') && !s.includes('contable') && !s.includes('inicial') && !s.includes('final')) idx.saldo = j;
+  }
+  if (idx.fecha === undefined || idx.desc === undefined || idx.nDoc === undefined || idx.cargo === undefined || idx.abono === undefined || idx.saldo === undefined) return null;
+  if (!(idx.fecha < idx.cargo && idx.cargo < idx.saldo)) return null;
+  return idx;
+}
+
+function parseBancoChileFromRows(rows) {
+  let saldoInicial = null;
+  let saldoFinal = null;
+  let numCuenta = null;
+  const transactions = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const joined = row.filter(Boolean).map(normChileHeader).join(' ');
+
+    if (joined.includes('cuenta n') || joined.includes('cuenta no') || joined.includes('cuenta n:')) {
+      for (let j = 0; j < row.length; j++) {
+        if (normChileHeader(row[j]).includes('cuenta') && row[j + 1]) {
+          numCuenta = String(row[j + 1]);
+          break;
+        }
+      }
+    }
+
+    if (joined.includes('saldo disponible') && joined.includes('saldo contable')) {
+      const r = rows[i + 1];
+      if (r) {
+        const vals = r.filter(v => v !== null && v !== undefined && String(v).trim() !== '');
+        if (vals.length >= 2) saldoInicial = parseNum(vals[1]);
+      }
+    } else if (joined.includes('saldo disponible') && !joined.includes('total general')) {
+      for (let j = 0; j < row.length; j++) {
+        if (normChileHeader(row[j]).includes('disponible') && row[j + 1] != null) {
+          const n = parseNum(row[j + 1]);
+          if (n !== 0) saldoInicial = n;
+        }
+      }
+    }
+  }
+
+  let headerRow = -1;
+  let colMap = null;
+
+  for (let i = 0; i < rows.length; i++) {
+    const m = mapChileHeaderColumns(rows[i] || []);
+    if (m) {
+      headerRow = i;
+      colMap = m;
+      break;
+    }
+  }
+
+  if (headerRow < 0 || !colMap) {
+    return { transactions: [], saldoInicial, saldoFinal, numCuenta };
+  }
+
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const row = rows[i] || [];
+    if (!row.length || row.every(x => x === null || x === undefined || String(x).trim() === '')) continue;
+
+    const fecha = row[colMap.fecha];
+    const desc = row[colMap.desc];
+    const nDocCell = row[colMap.nDoc];
+    const cargo = row[colMap.cargo];
+    const abono = row[colMap.abono];
+    const saldoCell = row[colMap.saldo];
+
+    if (fecha === null || fecha === undefined || fecha === '') continue;
+
+    const fechaFmt = formatDate(fecha);
+    if (!fechaFmt || !fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
+
+    const cargoNum = parseNum(cargo);
+    const abonoNum = parseNum(abono);
+    if (cargoNum === 0 && abonoNum === 0) continue;
+
+    if (saldoCell != null && String(saldoCell).trim() !== '') saldoFinal = parseNum(saldoCell);
+
+    const nDocDigits = parseInt(String(nDocCell || '').replace(/\D/g, ''), 10);
+    const nDocOut = !isNaN(nDocDigits) && nDocDigits > 0 ? nDocDigits : extractDocNumber(fechaFmt);
+
+    transactions.push({
+      fecha: fechaFmt,
+      tipo: abonoNum > 0 ? 'DP' : 'CB',
+      nDoc: nDocOut,
+      cargo: cargoNum > 0 ? cargoNum : null,
+      abono: abonoNum > 0 ? abonoNum : null,
+      desc: String(desc || ''),
+      _sortKey: fechaFmt.split('/').reverse().join(''),
+    });
+  }
+
+  return { transactions, saldoInicial, saldoFinal, numCuenta };
+}
+
+function parseBancoChile(wb) {
+  let best = null;
+  for (const sn of wb.SheetNames) {
+    const ws = wb.Sheets[sn];
+    if (!ws) continue;
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false });
+    const r = parseBancoChileFromRows(rows);
+    if (r.transactions.length > (best ? best.transactions.length : 0)) best = r;
+  }
+
+  if (!best || best.transactions.length === 0) {
+    showError('No se encontró el detalle de movimientos en la cartola de Banco de Chile (revisé todas las hojas).');
+    return null;
+  }
+
+  const transactions = best.transactions;
+  transactions.sort((a, b) => a._sortKey.localeCompare(b._sortKey));
+  const fechaDesde = transactions[0].fecha;
+  const fechaHasta = transactions[transactions.length - 1].fecha;
+  const pd = parsePeriodoFromDates(fechaDesde, fechaHasta);
+
+  return {
+    mes: pd.mes,
+    anio: pd.anio,
+    saldoInicial: best.saldoInicial || 0,
+    saldoFinal: best.saldoFinal != null ? best.saldoFinal : 0,
+    fechaDesde: pd.fechaDesde,
+    fechaHasta: pd.fechaHasta,
+    mesNombre: pd.mesNombre,
+    banco: 'Banco de Chile',
+    numCartola: best.numCuenta || '000',
+    transactions,
+  };
+}
+
+// ─── ITAÚ PARSER ─────────────────────────────────────────────────────────────
+function parseItau(wb) {
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
+
+  let saldoInicial = null, saldoFinal = null;
+  let fechaDesde = null, fechaHasta = null;
+  let numCuenta = null, periodo = null;
+  let transactions = [];
+  let detailStart = -1;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const joined = row.filter(Boolean).join(' ').toLowerCase();
+
+    // Cuenta Corriente number
+    if (i === 1) {
+      // Row 1: Cuenta Corriente | XXXXXXXXX | fecha
+      if (String(row[0]||'').toLowerCase().includes('cuenta')) {
+        numCuenta = String(row[1] || '');
+      }
+    }
+
+    // Período
+    if (joined.includes('período') || joined.includes('periodo')) {
+      for (let j=0; j<row.length; j++) {
+        if (String(row[j]||'').toLowerCase().includes('período') || String(row[j]||'').toLowerCase().includes('periodo')) {
+          const v = String(row[j+1] || row[j] || '');
+          const m = v.match(/(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}\/\d{2}\/\d{4})/);
+          if (m) { fechaDesde = m[1]; fechaHasta = m[2]; }
+        }
+      }
+    }
+
+    // Saldo anterior cuenta corriente
+    if (joined.includes('saldo anterior cuenta corriente')) {
+      const r = rows[i+1];
+      if (r) {
+        const vals = r.filter(v => v !== null && String(v).trim() !== '' && String(v).trim() !== '-');
+        if (vals.length > 0) saldoInicial = parseNum(vals[vals.length-1]);
+      }
+    }
+
+    // Movimientos header: Fecha | Número de | Sucursal | Descripción | Depósitos | Giros | Saldo diario
+    if (joined.includes('movimientos') && !joined.includes('resumen')) {
+      if (rows[i+1]) {
+        const nj = rows[i+1].filter(Boolean).join(' ').toLowerCase();
+        if (nj.includes('fecha') || nj.includes('operaci')) {
+          detailStart = i + 3; // skip header + subheader
+        } else {
+          detailStart = i + 2;
+        }
+      }
+    }
+
+    // Total cargos / abonos for saldo final computation
+    if (joined.includes('total cargos') && joined.includes('total abono')) {
+      const r = rows[i+1];
+      if (r) {
+        // total cargos, total abonos
+        const vals = r.filter(v => v !== null && String(v).trim() !== '' && String(v).trim() !== '-');
+      }
+    }
+  }
+
+  if (detailStart < 0) {
+    showError('No se encontró el detalle de movimientos en la cartola de Itaú.');
+    return null;
+  }
+
+  for (let i = detailStart; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.every(c => c === null || c === '')) continue;
+
+    // Itaú cols: Fecha(dd/mm) | N°operación | Sucursal | Descripción | Depósitos/abonos | Giros/cargos | Saldo diario
+    const fechaRaw = row[0];
+    const nDoc = row[1];
+    const desc = row[3];
+    const abono = row[4];
+    const cargo = row[5];
+
+    if (!fechaRaw) continue;
+
+    // Itaú uses dd/mm (no year), need to infer year from period
+    let fechaFmt = formatDate(fechaRaw);
+    // If format is dd/mm (no year), add year from fechaDesde
+    if (String(fechaRaw).match(/^\d{2}\/\d{2}$/) && fechaDesde) {
+      const year = fechaDesde.split('/')[2] || new Date().getFullYear();
+      fechaFmt = fechaRaw + '/' + year;
+    }
+    if (!fechaFmt || !fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
+
+    // Skip rows with '-' for both
+    const abonoStr = String(abono || '').trim();
+    const cargoStr = String(cargo || '').trim();
+    if (abonoStr === '-' && cargoStr === '-') continue;
+    if (abonoStr === '' && cargoStr === '') continue;
+
+    const abonoNum = (abonoStr === '-' || abonoStr === '') ? 0 : parseNum(abono);
+    const cargoNum = (cargoStr === '-' || cargoStr === '') ? 0 : parseNum(cargo);
+
+    if (abonoNum === 0 && cargoNum === 0) continue;
+
+    const saldoStr = String(row[6] != null ? row[6] : '').trim();
+    const saldoDiario = (saldoStr !== '' && saldoStr !== '-') ? parseNum(row[6]) : null;
+
+    transactions.push({
+      fecha: fechaFmt,
+      tipo: abonoNum > 0 ? 'DP' : 'CB',
+      nDoc: extractDocNumber(fechaFmt),
+      cargo: cargoNum > 0 ? cargoNum : null,
+      abono: abonoNum > 0 ? abonoNum : null,
+      desc: String(desc || ''),
+      _sortKey: fechaFmt.split('/').reverse().join(''),
+      _saldoDiario: saldoDiario,
+    });
+  }
+
+  if (transactions.length === 0) {
+    showError('No se encontraron movimientos en la cartola de Itaú.');
+    return null;
+  }
+
+  transactions.sort((a, b) => a._sortKey.localeCompare(b._sortKey));
+  if (!fechaDesde) fechaDesde = transactions[0].fecha;
+  if (!fechaHasta) fechaHasta = transactions[transactions.length-1].fecha;
+
+  let saldoFinalStmt = null;
+  for (let i = transactions.length - 1; i >= 0; i--) {
+    const s = transactions[i]._saldoDiario;
+    if (s != null && !isNaN(s)) {
+      saldoFinalStmt = s;
+      break;
+    }
+  }
+
+  const pd = parsePeriodoFromDates(fechaDesde, fechaHasta);
+
+  return {
+    mes: pd.mes,
+    anio: pd.anio,
+    saldoInicial: saldoInicial || 0,
+    saldoFinal: saldoFinalStmt != null ? saldoFinalStmt : (saldoFinal || 0),
+    fechaDesde: pd.fechaDesde,
+    fechaHasta: pd.fechaHasta,
+    mesNombre: pd.mesNombre,
+    banco: 'Itaú',
+    numCartola: numCuenta || '000',
+    transactions,
+  };
+}
+
+// ─── SCOTIABANK — columnas por encabezado (ej. datos desde col. B; hoja "Data") ──
+function mapScotiabankHeaderColumns(row) {
+  if (!row || !row.length) return null;
+  const idx = {};
+  for (let j = 0; j < row.length; j++) {
+    const s = normChileHeader(row[j]);
+    if (!s) continue;
+    if (idx.fecha === undefined && (s === 'fecha' || (s.includes('fecha') && s.length < 30 && !s.match(/^\d/)))) idx.fecha = j;
+    if (idx.desc === undefined && (s.includes('descrip') || s.includes('descripcion'))) idx.desc = j;
+    if (idx.nDoc === undefined && ((s.includes('doc') && !s.includes('descri')) || s.includes('n°') || (s.includes('nro') && s.includes('doc')))) idx.nDoc = j;
+    if (idx.cargo === undefined && s.includes('cargo')) idx.cargo = j;
+    if (idx.abono === undefined && s.includes('abono')) idx.abono = j;
+    if (idx.saldo === undefined && s.includes('saldo') && !s.includes('disponible') && !s.includes('contable')) idx.saldo = j;
+  }
+  if (idx.fecha === undefined || idx.desc === undefined || idx.cargo === undefined || idx.abono === undefined || idx.saldo === undefined) return null;
+  if (!(idx.fecha < idx.cargo && idx.cargo < idx.saldo)) return null;
+  return idx;
+}
+
+function parseScotiabankFromRows(rows) {
+  let saldoInicial = null;
+  let saldoFinal = null;
+  let fechaDesde = null;
+  let fechaHasta = null;
+  const transactions = [];
+  let headerRow = -1;
+  let colMap = null;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const joined = row.filter(Boolean).join(' ').toLowerCase();
+
+    if (joined.includes('desde')) {
+      for (let j = 0; j < row.length; j++) {
+        if (String(row[j] || '').toLowerCase() === 'desde' && row[j + 1]) {
+          const v = String(row[j + 1]);
+          if (v.match(/^\d{8}$/)) {
+            fechaDesde = v.slice(6, 8) + '/' + v.slice(4, 6) + '/' + v.slice(0, 4);
+          } else {
+            fechaDesde = formatDate(v);
+          }
+        }
+        if (String(row[j] || '').toLowerCase() === 'hasta' && row[j + 1]) {
+          const v = String(row[j + 1]);
+          if (v.match(/^\d{8}$/)) {
+            fechaHasta = v.slice(6, 8) + '/' + v.slice(4, 6) + '/' + v.slice(0, 4);
+          } else {
+            fechaHasta = formatDate(v);
+          }
+        }
+      }
+    }
+
+    const m = mapScotiabankHeaderColumns(row);
+    if (m) {
+      headerRow = i;
+      colMap = m;
+      break;
+    }
+  }
+
+  if (headerRow < 0 || !colMap) {
+    return { transactions: [], saldoInicial, saldoFinal, fechaDesde, fechaHasta };
+  }
+
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const row = rows[i] || [];
+    if (!row.length || row.every(c => c === null || c === undefined || String(c).trim() === '')) continue;
+
+    const fecha = row[colMap.fecha];
+    const desc = row[colMap.desc];
+    const nDocCell = colMap.nDoc !== undefined ? row[colMap.nDoc] : null;
+    const cargoRaw = row[colMap.cargo];
+    const abonoRaw = row[colMap.abono];
+    const saldoRaw = row[colMap.saldo];
+
+    if (fecha === null || fecha === undefined || fecha === '') continue;
+    const fechaFmt = formatDate(fecha);
+    if (!fechaFmt || !fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
+
+    const cargoNum = parseNum(cargoRaw);
+    const abonoNum = parseNum(abonoRaw);
+
+    let finalCargo = 0;
+    let finalAbono = 0;
+
+    if (cargoNum !== 0 || abonoNum !== 0) {
+      finalCargo = cargoNum < 0 ? Math.abs(cargoNum) : 0;
+      finalAbono = abonoNum > 0 ? abonoNum : 0;
+      if (cargoNum > 0) finalCargo = cargoNum;
+    } else if (cargoRaw !== null && cargoRaw !== undefined && abonoRaw === null) {
+      const amt = parseNum(cargoRaw);
+      if (amt < 0) finalCargo = Math.abs(amt);
+      else if (amt > 0) finalAbono = amt;
+    }
+
+    if (finalCargo === 0 && finalAbono === 0) continue;
+
+    const nDocDigits = parseInt(String(nDocCell || '').replace(/\D/g, ''), 10);
+    const nDocOut = !isNaN(nDocDigits) && nDocDigits > 0 ? nDocDigits : extractDocNumber(fechaFmt);
+
+    transactions.push({
+      fecha: fechaFmt,
+      tipo: finalAbono > 0 ? 'DP' : 'CB',
+      nDoc: nDocOut,
+      cargo: finalCargo > 0 ? finalCargo : null,
+      abono: finalAbono > 0 ? finalAbono : null,
+      desc: String(desc || ''),
+      _sortKey: fechaFmt.split('/').reverse().join(''),
+    });
+
+    if (saldoRaw !== null && saldoRaw !== undefined && String(saldoRaw).trim() !== '') {
+      saldoFinal = parseNum(saldoRaw);
+    }
+  }
+
+  return { transactions, saldoInicial, saldoFinal, fechaDesde, fechaHasta };
+}
+
+function parseScotiabank(wb) {
+  let best = null;
+  for (const sn of wb.SheetNames) {
+    const ws = wb.Sheets[sn];
+    if (!ws) continue;
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false });
+    const r = parseScotiabankFromRows(rows);
+    if (r.transactions.length > (best ? best.transactions.length : 0)) best = r;
+  }
+
+  if (!best || best.transactions.length === 0) {
+    showError('No se encontró el detalle de movimientos en la cartola de Scotiabank (revisé todas las hojas).');
+    return null;
+  }
+
+  const transactions = best.transactions;
+  transactions.sort((a, b) => a._sortKey.localeCompare(b._sortKey));
+  let fechaDesde = best.fechaDesde;
+  let fechaHasta = best.fechaHasta;
+  if (!fechaDesde) fechaDesde = transactions[0].fecha;
+  if (!fechaHasta) fechaHasta = transactions[transactions.length - 1].fecha;
+
+  const pd = parsePeriodoFromDates(fechaDesde, fechaHasta);
+
+  return {
+    mes: pd.mes,
+    anio: pd.anio,
+    saldoInicial: best.saldoInicial || 0,
+    saldoFinal: best.saldoFinal || 0,
+    fechaDesde: pd.fechaDesde,
+    fechaHasta: pd.fechaHasta,
+    mesNombre: pd.mesNombre,
+    banco: 'Scotiabank',
+    numCartola: '000',
+    transactions,
+  };
+}
+
+// ─── GENERIC PARSER (BCI original + fallback) ────────────────────────────────
+function parseGeneric(wb) {
+  const sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
+
+  let detailStart = -1, summaryStart = -1;
+  let saldoInicialVal = null, saldoFinalVal = null;
+  let fechaDesde = null, fechaHasta = null;
+  let numCartola = null, nombreBanco = 'Banco';
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const joined = row.filter(Boolean).join(' ').toLowerCase();
+
+    if (i === 0) {
+      const title = row.filter(Boolean).join(' ');
+      if (/bci/i.test(title)) nombreBanco = 'BCI';
+      else if (/santander/i.test(title)) nombreBanco = 'Santander';
+      else if (/chile/i.test(title)) nombreBanco = 'Banco de Chile';
+      else if (/scotiabank/i.test(title)) nombreBanco = 'Scotiabank';
+      else if (/itau/i.test(title)) nombreBanco = 'Itaú';
+      else if (/estado/i.test(title)) nombreBanco = 'Banco Estado';
+    }
+
+    if (joined.includes('saldo inicial') && joined.includes('saldo final')) {
+      const r = rows[i + 1];
+      if (r) { saldoInicialVal = parseNum(r[0]); saldoFinalVal = parseNum(r[6]); }
+    }
+
+    if (joined.includes('detalle movimientos')) detailStart = i + 2;
+    if (joined.includes('resumen comisiones')) summaryStart = i;
+
+    if (joined.includes('número cartola') || joined.includes('n° cartola') || joined.includes('cartola:')) {
+      for (let j=0; j<row.length; j++) {
+        if (String(row[j]||'').toLowerCase().includes('cartola')) {
+          const nm = String(row[j]).match(/[\d]+/);
+          if (nm) { numCartola = nm[0]; break; }
+          if (row[j+1]) { numCartola = String(row[j+1]).replace(/\D/g,'') || String(row[j+1]); break; }
+        }
+      }
+    }
+
+    if (joined.includes('fecha desde')) {
+      for (let j=0; j<row.length; j++) {
+        if (String(row[j]||'').toLowerCase().includes('fecha desde')) fechaDesde = row[j+1] || null;
+        if (String(row[j]||'').toLowerCase().includes('fecha hasta')) fechaHasta = row[j+1] || null;
+      }
+    }
+  }
+
+  if (detailStart < 0) {
+    showError('No se encontró la sección de movimientos en el archivo.');
+    return null;
+  }
+
+  const transactions = [];
+  const dataEnd = summaryStart >= 0 ? summaryStart : rows.length;
+
+  for (let i = detailStart; i < dataEnd; i++) {
+    const row = rows[i];
+    if (!row || row.every(c => c === null)) continue;
+    const monto = row[0];
+    const desc = row[1];
+    const fecha = row[2] || row[3];
+    const tipo = row[5] || row[7];
+
+    if (!monto || !fecha) continue;
+    const montoNum = parseFloat(String(monto).replace(/[^0-9.-]/g, ''));
+    if (isNaN(montoNum)) continue;
+
+    const isAbono = String(tipo||'').toUpperCase().trim() === 'A';
+    const isCargo = String(tipo||'').toUpperCase().trim() === 'C' || montoNum < 0;
+
+    transactions.push({
+      fecha: formatDate(fecha),
+      tipo: isCargo ? 'CB' : 'DP',
+      nDoc: extractDocNumber(formatDate(fecha)),
+      cargo: isCargo ? Math.abs(montoNum) : null,
+      abono: isAbono ? Math.abs(montoNum) : null,
+      desc: String(desc || ''),
+    });
+  }
+
+  if (transactions.length === 0) {
+    showError('No se encontraron movimientos en el archivo.');
+    return null;
+  }
+
+  const pd = parsePeriodoFromDates(fechaDesde, fechaHasta);
+
+  return {
+    mes: pd.mes,
+    anio: pd.anio,
+    saldoInicial: saldoInicialVal || 0,
+    saldoFinal: saldoFinalVal || 0,
+    fechaDesde: pd.fechaDesde,
+    fechaHasta: pd.fechaHasta,
+    mesNombre: pd.mesNombre,
+    banco: nombreBanco,
+    numCartola: numCartola || '000',
+    transactions,
+  };
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function parseNum(v) {
+  if (v === null || v === undefined) return 0;
+  const s = String(v).replace(/[^0-9.-]/g, '');
+  return parseFloat(s) || 0;
+}
+
+function formatDate(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'number' && !isNaN(v) && v > 20000 && v < 1200000) {
+    if (typeof XLSX !== 'undefined' && XLSX.SSF && typeof XLSX.SSF.parse_date_code === 'function') {
+      try {
+        const o = XLSX.SSF.parse_date_code(v);
+        if (o && o.y > 1900 && o.y < 2100) {
+          return `${String(o.d).padStart(2, '0')}/${String(o.m).padStart(2, '0')}/${o.y}`;
+        }
+      } catch (e) { /* continuar con reglas de texto */ }
+    }
+  }
+  const s = String(v).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  // dd-mm-yyyy
+  if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s.replace(/-/g, '/');
+  // yyyymmdd
+  if (/^\d{8}$/.test(s)) return s.slice(6,8)+'/'+s.slice(4,6)+'/'+s.slice(0,4);
+  // dd/mm (Itaú)
+  if (/^\d{2}\/\d{2}$/.test(s)) return s; // caller adds year
+  // Try JS Date (for Excel date objects)
+  if (v instanceof Date) {
+    const dd = String(v.getDate()).padStart(2,'0');
+    const mm = String(v.getMonth()+1).padStart(2,'0');
+    return `${dd}/${mm}/${v.getFullYear()}`;
+  }
+  // Try parsing
+  const d = new Date(s);
+  if (!isNaN(d.getTime()) && d.getFullYear() > 2000) {
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  }
+  return s;
+}
+
+function parsePeriodoFromDates(desde, hasta) {
+  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  let mes = 2, anio = new Date().getFullYear();
+  let fechaDesdeOut = '01-02-2026', fechaHastaOut = '28-02-2026', mesNombre = 'Febrero';
+
+  if (desde) {
+    const s = String(desde);
+    // DD/MM/YYYY or DD-MM-YYYY
+    let m = s.match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+    if (m) {
+      mes = parseInt(m[2]);
+      anio = parseInt(m[3]);
+      fechaDesdeOut = `01-${m[2]}-${m[3]}`;
+      mesNombre = meses[mes-1] || String(mes);
+    }
+  }
+  if (hasta) {
+    const s = String(hasta);
+    let m = s.match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+    if (m) {
+      const lastDay = new Date(parseInt(m[3]), parseInt(m[2]), 0).getDate();
+      fechaHastaOut = `${String(lastDay).padStart(2,'0')}-${m[2]}-${m[3]}`;
+    }
+  }
+
+  return { mes, anio, fechaDesde: fechaDesdeOut, fechaHasta: fechaHastaOut, mesNombre };
+}
+
+// Doc number = día sin cero inicial + mes con cero (2 dígitos)
+// Ej: 02/02/2026 → 202 | 05/02/2026 → 502 | 11/02/2026 → 1102
+function extractDocNumber(fecha) {
+  const m = String(fecha).match(/^(\d{2})\/(\d{2})/);
+  if (m) return String(parseInt(m[1], 10)) + m[2];
+  return fecha;
+}
+
+// ─── Render Preview ───────────────────────────────────────────────────────────
+function renderPreview() {
+  const d = parsedData;
+
+  // Update step indicators
+  document.getElementById('step1').classList.add('done');
+  document.getElementById('step2').classList.add('done');
+  document.getElementById('step3').classList.add('active');
+  document.getElementById('line1').classList.add('done');
+  document.getElementById('line2').classList.add('done');
+
+  document.getElementById('infoBanco').textContent = d.banco;
+  document.getElementById('infoCartola').textContent = d.numCartola;
+  document.getElementById('infoPeriodo').textContent = `${d.mesNombre} ${d.anio}`;
+  document.getElementById('infoSaldoIni').textContent = fmtNum(d.saldoInicial);
+  document.getElementById('infoSaldoFin').textContent = fmtNum(d.saldoFinal);
+  document.getElementById('infoMovs').textContent = d.transactions.length;
+  show('infoPanel');
+
+  const tbody = document.getElementById('txBody');
+  tbody.innerHTML = '';
+  d.transactions.forEach((tx, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${tx.fecha}</td>
+      <td class="type-${tx.tipo.toLowerCase()}">${tx.tipo}</td>
+      <td>${tx.nDoc}</td>
+      <td class="amount-cargo">${tx.cargo ? fmtNum(tx.cargo) : ''}</td>
+      <td class="amount-abono">${tx.abono ? fmtNum(tx.abono) : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('txCount').textContent = `${d.transactions.length} registros`;
+  show('txSection');
+  show('btnConvert');
+}
+
+function fmtNum(n) {
+  if (!n && n !== 0) return '';
+  return Number(n).toLocaleString('es-CL');
+}
+
+// ─── Generate Outputs ─────────────────────────────────────────────────────────
+function generateOutputs() {
+  try {
+    xlsxBlob = buildXlsx();
+    txtContent = buildTxt();
+    const base = buildFileName();
+    document.getElementById('nameXlsx').textContent = base + '.xlsx';
+    document.getElementById('nameTxt').textContent = base + '.txt';
+    show('downloadSection');
+    show('btnReset');
+    showSuccess('✓ Archivos generados. Haz click en cada tarjeta para descargar.');
+    document.getElementById('btnConvert').style.display = 'none';
+  } catch(err) {
+    showError('Error al generar archivos: ' + err.message);
+    console.error(err);
+  }
+}
+
+function buildFileName() {
+  const d = parsedData;
+  return `Banco ${d.banco} ${d.numCartola} - ${d.mesNombre} ${d.anio}`;
+}
+
+// ─── Build XLSX ───────────────────────────────────────────────────────────────
+function buildXlsx() {
+  const d = parsedData;
+  const wb = XLSX.utils.book_new();
+  const wsData = [];
+
+  wsData.push([d.mes, d.anio, d.saldoInicial, d.fechaDesde, d.fechaHasta, d.saldoFinal]);
+
+  let totalCargo = 0, totalAbono = 0;
+  d.transactions.forEach((tx, i) => {
+    wsData.push([i+1, tx.fecha, tx.tipo, parseInt(tx.nDoc)||tx.nDoc, tx.cargo||null, tx.abono||null]);
+    if (tx.cargo) totalCargo += tx.cargo;
+    if (tx.abono) totalAbono += tx.abono;
+  });
+
+  wsData.push([null, null, null, null, totalCargo||null, totalAbono||null]);
+  wsData.push([null, null, null, null, null, 0]);
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [{wch:6},{wch:14},{wch:6},{wch:8},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Hoja1');
+
+  const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  return new Blob([wbout], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+// ─── Build TXT ────────────────────────────────────────────────────────────────
+function buildTxt() {
+  const d = parsedData;
+  const TAB = '\t';
+  const lines = [];
+
+  const fDesde = d.fechaDesde.replace(/-/g,'/');
+  const fHasta = d.fechaHasta.replace(/-/g,'/');
+  lines.push([d.mes, d.anio, d.saldoInicial, fDesde, fHasta, d.saldoFinal].join(TAB));
+
+  let totalCargo = 0, totalAbono = 0;
+  d.transactions.forEach((tx, i) => {
+    lines.push([i+1, tx.fecha, tx.tipo, parseInt(tx.nDoc)||tx.nDoc, tx.cargo||'', tx.abono||''].join(TAB));
+    if (tx.cargo) totalCargo += tx.cargo;
+    if (tx.abono) totalAbono += tx.abono;
+  });
+
+  lines.push([TAB,TAB,TAB,TAB,totalCargo||'',totalAbono||''].join(TAB));
+  lines.push([TAB,TAB,TAB,TAB,TAB,0].join(TAB));
+
+  return lines.join('\n') + '\n';
+}
+
+// ─── Downloads ────────────────────────────────────────────────────────────────
+function downloadXlsx() {
+  if (!xlsxBlob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(xlsxBlob);
+  a.download = buildFileName() + '.xlsx';
+  a.click();
+}
+
+function downloadTxt() {
+  if (!txtContent) return;
+  const blob = new Blob([txtContent], { type:'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = buildFileName() + '.txt';
+  a.click();
+}
+
+// ─── UI Helpers ───────────────────────────────────────────────────────────────
+function show(id) { document.getElementById(id).classList.add('visible'); }
+function hide(id) { document.getElementById(id).classList.remove('visible'); }
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg; el.classList.add('visible');
+}
+function showSuccess(msg) {
+  const el = document.getElementById('successMsg');
+  el.textContent = msg; el.classList.add('visible');
+}
+function showWarning(msg) {
+  const el = document.getElementById('warningMsg');
+  el.textContent = msg; el.classList.add('visible');
+}
+function clearMessages() {
+  ['errorMsg','successMsg','warningMsg'].forEach(id => document.getElementById(id).classList.remove('visible'));
+}
+
+function resetFilesOnly() {
+  parsedData = null; xlsxBlob = null; txtContent = null;
+  uploadedFiles = []; workbooks = [];
+  zone.classList.remove('has-files');
+  document.getElementById('filesList').innerHTML = '';
+  document.getElementById('fileInput').value = '';
+  resetPreview();
+}
+
+function resetPreview() {
+  ['infoPanel','txSection','btnConvert','downloadSection','btnReset'].forEach(hide);
+  document.getElementById('txBody').innerHTML = '';
+  document.getElementById('btnConvert').style.display = '';
+  document.getElementById('step3').classList.remove('active');
+  document.getElementById('line1').classList.remove('done');
+  document.getElementById('line2').classList.remove('done');
+}
+
+function resetAll() {
+  selectedBank = null;
+  uploadedFiles = []; workbooks = [];
+  parsedData = null; xlsxBlob = null; txtContent = null;
+
+  clearMessages();
+  document.querySelectorAll('.bank-btn').forEach(b => b.classList.remove('selected'));
+  zone.classList.remove('has-files', 'visible');
+  document.getElementById('filesList').innerHTML = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('periodOverride').classList.remove('visible');
+  document.getElementById('overrideCartola').value = '';
+  document.getElementById('overrideDesde').value = '';
+  document.getElementById('overrideHasta').value = '';
+
+  ['infoPanel','txSection','btnConvert','downloadSection','btnReset'].forEach(hide);
+  document.getElementById('txBody').innerHTML = '';
+  document.getElementById('btnConvert').style.display = '';
+
+  // Reset steps
+  ['step1','step2','step3'].forEach(id => {
+    document.getElementById(id).classList.remove('done','active');
+  });
+  document.getElementById('step1').classList.add('active');
+  document.getElementById('step2').classList.add('active');
+  ['line1','line2'].forEach(id => document.getElementById(id).classList.remove('done'));
+}
+</script>
+</body>
+</html>
