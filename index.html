@@ -425,6 +425,7 @@
 
   .type-dp { color: var(--mint); font-weight: 700; }
   .type-cb { color: var(--danger); font-weight: 700; }
+  .type-ch { color: #c45c26; font-weight: 700; }
   .amount-abono { color: #3d9e6e; font-weight: 600; }
   .amount-cargo { color: var(--danger); font-weight: 600; }
 
@@ -1175,8 +1176,8 @@ function parseBCI(wbs) {
       }
 
       if (i > 0 && rows[i-1] && rows[i-1].filter(Boolean).join(' ').toLowerCase().includes('saldo anterior')) {
-        saldoAnterior = parseNum(rows[i][1]);
-        saldoFinalPeriod = parseNum(rows[i][4]);
+        saldoAnterior = parseNumBCI(rows[i][1]);
+        saldoFinalPeriod = parseNumBCI(rows[i][4]);
       }
     }
 
@@ -1209,20 +1210,24 @@ function parseBCI(wbs) {
       const fechaFmt = formatDate(fecha);
       if (!fechaFmt || !fechaFmt.match(/\d{2}\/\d{2}\/\d{4}/)) continue;
 
-      const cargoNum = parseNum(cargo);
-      const abonoNum = parseNum(abono);
+      const cargoNum = parseNumBCI(cargo);
+      const abonoNum = parseNumBCI(abono);
       if (cargoNum === 0 && abonoNum === 0) continue;
 
       const nDocDigits = parseInt(String(nDocCell || '').replace(/\D/g, ''), 10);
       const nDocOut = !isNaN(nDocDigits) && nDocDigits > 0 ? nDocDigits : extractDocNumber(fechaFmt);
 
+      const descStr = String(desc || '');
+      const isChequeCobrado = /cheque\s+cobrado\s+por/i.test(descStr);
+      const tipo = abonoNum > 0 ? 'DP' : (isChequeCobrado ? 'CH' : 'CB');
+
       allTransactions.push({
         fecha: fechaFmt,
-        tipo: abonoNum > 0 ? 'DP' : 'CB',
+        tipo,
         nDoc: nDocOut,
         cargo: cargoNum > 0 ? cargoNum : null,
         abono: abonoNum > 0 ? abonoNum : null,
-        desc: String(desc || ''),
+        desc: descStr,
         _sortKey: fechaFmt.split('/').reverse().join(''),
       });
     }
@@ -2009,6 +2014,18 @@ function parseNum(v) {
   return parseFloat(s) || 0;
 }
 
+/** BCI: miles con punto (ej. 2.188.447). Se eliminan puntos y se obtiene entero en pesos. */
+function parseNumBCI(v) {
+  if (v === null || v === undefined) return 0;
+  let s = String(v).trim();
+  if (!s || s === '-') return 0;
+  s = s.replace(/\./g, '');
+  s = s.replace(',', '.');
+  const n = parseFloat(String(s).replace(/[^\d.-]/g, ''));
+  if (isNaN(n)) return 0;
+  return Math.round(n);
+}
+
 function formatDate(v) {
   if (v === null || v === undefined) return '';
   if (typeof v === 'number' && !isNaN(v) && v > 20000 && v < 1200000) {
@@ -2147,23 +2164,67 @@ function buildFileName() {
   return `Banco ${d.banco} ${d.numCartola} - ${d.mesNombre} ${d.anio}`;
 }
 
+function bciXlsxIntText(n) {
+  if (n === null || n === undefined || n === '') return null;
+  const v = Math.round(Number(n));
+  if (isNaN(v)) return null;
+  return String(v);
+}
+
 // ─── Build XLSX ───────────────────────────────────────────────────────────────
 function buildXlsx() {
   const d = parsedData;
   const wb = XLSX.utils.book_new();
   const wsData = [];
+  const isBci = d.banco === 'BCI';
 
-  wsData.push([d.mes, d.anio, d.saldoInicial, d.fechaDesde, d.fechaHasta, d.saldoFinal]);
+  if (isBci) {
+    wsData.push([
+      String(d.mes),
+      String(d.anio),
+      bciXlsxIntText(d.saldoInicial) ?? '0',
+      String(d.fechaDesde),
+      String(d.fechaHasta),
+      bciXlsxIntText(d.saldoFinal) ?? '0',
+    ]);
+  } else {
+    wsData.push([d.mes, d.anio, d.saldoInicial, d.fechaDesde, d.fechaHasta, d.saldoFinal]);
+  }
 
   let totalCargo = 0, totalAbono = 0;
   d.transactions.forEach((tx, i) => {
-    wsData.push([i+1, tx.fecha, tx.tipo, parseInt(tx.nDoc)||tx.nDoc, tx.cargo||null, tx.abono||null]);
-    if (tx.cargo) totalCargo += tx.cargo;
-    if (tx.abono) totalAbono += tx.abono;
+    const docVal = parseInt(tx.nDoc, 10);
+    const docCell = isBci ? String(!isNaN(docVal) && docVal > 0 ? docVal : tx.nDoc) : (parseInt(tx.nDoc, 10) || tx.nDoc);
+    if (isBci) {
+      wsData.push([
+        String(i + 1),
+        String(tx.fecha),
+        String(tx.tipo),
+        docCell,
+        tx.cargo != null && tx.cargo !== '' ? bciXlsxIntText(tx.cargo) : null,
+        tx.abono != null && tx.abono !== '' ? bciXlsxIntText(tx.abono) : null,
+      ]);
+    } else {
+      wsData.push([i + 1, tx.fecha, tx.tipo, docCell, tx.cargo || null, tx.abono || null]);
+    }
+    if (tx.cargo) totalCargo += Number(tx.cargo);
+    if (tx.abono) totalAbono += Number(tx.abono);
   });
 
-  wsData.push([null, null, null, null, totalCargo||null, totalAbono||null]);
-  wsData.push([null, null, null, null, null, 0]);
+  if (isBci) {
+    wsData.push([
+      null,
+      null,
+      null,
+      null,
+      totalCargo ? bciXlsxIntText(totalCargo) : null,
+      totalAbono ? bciXlsxIntText(totalAbono) : null,
+    ]);
+    wsData.push([null, null, null, null, null, '0']);
+  } else {
+    wsData.push([null, null, null, null, totalCargo || null, totalAbono || null]);
+    wsData.push([null, null, null, null, null, 0]);
+  }
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   ws['!cols'] = [{wch:6},{wch:14},{wch:6},{wch:8},{wch:12},{wch:12}];
