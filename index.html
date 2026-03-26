@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conversor de Cartola Bancaria</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --bg: #fdf6f9;
+    --bg2: #fef0f5;
+    --surface: #ffffff;
+    --surface2: #fde8f2;
+    --border: #f0c9df;
+    --border2: #e8b4d0;
+    --pink: #e8559a;
+    --pink-light: #f5a8ce;
+    --pink-pale: #fce4f0;
+    --rose: #f06292;
+    --lavender: #ce93d8;
+    --lavender-light: #ead5f5;
+    --mint: #80cbc4;
+    --text: #3d2035;
+    --text2: #7a4060;
+    --muted: #b07898;
+    --danger: #e05577;
+    --success: #66bb6a;
+    --shadow: rgba(232, 85, 154, 0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rubik', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 60px;
+  }
+
+  /* Soft blobs background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -120px; right: -120px;
+    width: 420px; height: 420px;
+    background: radial-gradient(circle, rgba(232,85,154,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -80px; left: -80px;
+    width: 340px; height: 340px;
+    background: radial-gradient(circle, rgba(206,147,216,0.1) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 760px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 44px;
+  }
+
+  .logo-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Rubik', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pink);
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    background: var(--pink-pale);
+    border: 1px solid var(--pink-light);
+    border-radius: 20px;
+    padding: 5px 14px;
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    font-size: clamp(26px, 5vw, 40px);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  h1 span {
+    background: linear-gradient(135deg, var(--pink) 0%, var(--lavender) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 400;
+  }
+
+  /* Upload Zone */
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 20px;
+    padding: 50px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 20px var(--shadow);
+  }
+
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(232,85,154,0.04) 0%, transparent 65%);
+    pointer-events: none;
+  }
+
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--pink);
+    background: var(--bg2);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(232,85,154,0.16);
+  }
+
+  .upload-zone.has-file {
+    border-color: var(--pink);
+    border-style: solid;
+    background: linear-gradient(135deg, rgba(232,85,154,0.03) 0%, rgba(206,147,216,0.04) 100%);
+  }
+
+  .upload-icon {
+    font-size: 52px;
+    margin-bottom: 14px;
+    display: block;
+  }
+
+  .upload-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  .upload-sub {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .file-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--pink-pale);
+    border: 1px solid var(--pink-light);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--pink);
+    margin-top: 14px;
+  }
+
+  #fileInput { display: none; }
+
+  /* Info panel */
+  .info-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    display: none;
+    box-shadow: 0 2px 16px var(--shadow);
+  }
+
+  .info-panel.visible { display: block; }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+  }
+
+  .info-item {
+    background: var(--bg2);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+
+  .info-item label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 5px;
+  }
+
+  .info-item value {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--pink);
+  }
+
+  /* Transactions table */
+  .transactions-section {
+    display: none;
+    margin-bottom: 20px;
+  }
+
+  .transactions-section.visible { display: block; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+  }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--lavender-light);
+    border: 1px solid #dbb8ec;
+    border-radius: 20px;
+    padding: 3px 10px;
+    color: #9c4fb5;
+  }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    overflow-x: auto;
+    box-shadow: 0 2px 16px var(--shadow);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr {
+    background: var(--surface2);
+  }
+
+  th {
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #fce8f3;
+    color: var(--text2);
+    white-space: nowrap;
+    font-weight: 400;
+  }
+
+  tr:hover td { background: #fff8fc; }
+  tr:last-child td { border-bottom: none; }
+
+  .type-dp { color: var(--mint); font-weight: 700; }
+  .type-cb { color: var(--danger); font-weight: 700; }
+  .amount-abono { color: #3d9e6e; font-weight: 600; }
+  .amount-cargo { color: var(--danger); font-weight: 600; }
+
+  /* Convert Button */
+  .btn-convert {
+    width: 100%;
+    padding: 17px;
+    background: linear-gradient(135deg, var(--pink) 0%, var(--lavender) 100%);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-family: 'Rubik', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: none;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 20px rgba(232,85,154,0.35);
+  }
+
+  .btn-convert::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+    transition: left 0.4s ease;
+  }
+
+  .btn-convert:hover::before { left: 100%; }
+
+  .btn-convert:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(232,85,154,0.4);
+  }
+
+  .btn-convert:active { transform: translateY(0); }
+  .btn-convert.visible { display: block; }
+
+  /* Download section */
+  .download-section {
+    display: none;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .download-section.visible {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .download-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 18px;
+    text-align: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .download-card:first-child:hover {
+    border-color: var(--pink);
+    background: var(--pink-pale);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(232,85,154,0.15);
+  }
+
+  .download-card:last-child:hover {
+    border-color: var(--lavender);
+    background: var(--lavender-light);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(206,147,216,0.2);
+  }
+
+  .download-icon { font-size: 30px; margin-bottom: 10px; }
+
+  .download-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .download-name {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    word-break: break-word;
+    line-height: 1.4;
+  }
+
+  .download-type {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--pink);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: var(--pink-pale);
+    border-radius: 10px;
+    display: inline-block;
+    padding: 2px 8px;
+    margin-top: 4px;
+  }
+
+  .download-card:last-child .download-type {
+    color: #9c4fb5;
+    background: var(--lavender-light);
+  }
+
+  /* Error / success messages */
+  .message {
+    padding: 13px 18px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    display: none;
+    line-height: 1.6;
+  }
+
+  .message.visible { display: block; }
+  .message.error { background: #fde8ed; border: 1px solid #f5b8c8; color: var(--danger); }
+  .message.success { background: #e8f8ee; border: 1px solid #a8dfb8; color: #2e7d4f; }
+
+  /* Reset button */
+  .btn-reset {
+    background: transparent;
+    border: 1.5px solid var(--border2);
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 11px 20px;
+    font-family: 'Rubik', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: none;
+    width: 100%;
+  }
+
+  .btn-reset.visible { display: block; }
+  .btn-reset:hover { border-color: var(--pink-light); color: var(--pink); background: var(--pink-pale); }
+
+  footer {
+    margin-top: 48px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--muted);
+    opacity: 0.6;
+  }
+
+  @media (max-width: 480px) {
+    .download-section.visible { grid-template-columns: 1fr; }
+    .info-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo-tag">🌸 Sistema Contable</div>
+    <h1>Conversor de <span>Cartola Bancaria</span></h1>
+    <p class="subtitle">Transforma tu cartola .xlsx al formato de importación contable</p>
+  </header>
+
+  <!-- Upload Zone -->
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+    <span class="upload-icon">📊</span>
+    <div class="upload-title">Arrastra tu cartola aquí</div>
+    <div class="upload-sub">o haz click para seleccionar archivo</div>
+    <div class="upload-sub" style="margin-top:8px">Formato: .xlsx (Cartola Histórica BCI)</div>
+    <div id="fileBadge" class="file-badge" style="display:none">
+      <span>📎</span><span id="fileName"></span>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
+  </div>
+
+  <!-- Messages -->
+  <div class="message error" id="errorMsg"></div>
+  <div class="message success" id="successMsg"></div>
+
+  <!-- Info Panel -->
+  <div class="info-panel" id="infoPanel">
+    <div class="info-grid">
+      <div class="info-item">
+        <label>Banco</label>
+        <value id="infoBanco">—</value>
+      </div>
+      <div class="info-item">
+        <label>N° Cartola</label>
+        <value id="infoCartola">—</value>
+      </div>
+      <div class="info-item">
+        <label>Período</label>
+        <value id="infoPeriodo">—</value>
+      </div>
+      <div class="info-item">
+        <label>Saldo Inicial</label>
+        <value id="infoSaldoIni">—</value>
+      </div>
+      <div class="info-item">
+        <label>Saldo Final</label>
+        <value id="infoSaldoFin">—</value>
+      </div>
+      <div class="info-item">
+        <label>N° Movimientos</label>
+        <value id="infoMovs">—</value>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transactions preview -->
+  <div class="transactions-section" id="txSection">
+    <div class="section-header">
+      <span class="section-title">Movimientos detectados</span>
+      <span class="badge" id="txCount">0 registros</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Doc</th>
+            <th>Cargo</th>
+            <th>Abono</th>
+          </tr>
+        </thead>
+        <tbody id="txBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Convert Button -->
+  <button class="btn-convert" id="btnConvert" onclick="generateOutputs()">
+    ⚡ Generar Archivos de Salida
+  </button>
+
+  <!-- Download Cards -->
+  <div class="download-section" id="downloadSection">
+    <div class="download-card" onclick="downloadXlsx()">
+      <div class="download-icon">📗</div>
+      <div class="download-label">Cartola Output</div>
+      <div class="download-name" id="nameXlsx">—</div>
+      <div class="download-type">.xlsx</div>
+    </div>
+    <div class="download-card" onclick="downloadTxt()">
+      <div class="download-icon">📄</div>
+      <div class="download-label">Output Final</div>
+      <div class="download-name" id="nameTxt">—</div>
+      <div class="download-type">.txt</div>
+    </div>
+  </div>
+
+  <!-- Reset -->
+  <button class="btn-reset" id="btnReset" onclick="resetAll()">↩ Cargar otro archivo</button>
+
+  <footer>
+    <div>Conversor Cartola Bancaria v1.1</div>
+    <div>Hecho con ❤️ para mi Negrita</div>
+  </footer>
+</div>
+
+<script>
+// ─── State ──────────────────────────────────────────────────────────────────
+let parsedData = null;
+let xlsxBlob = null;
+let txtContent = null;
+
+// ─── Drag & Drop ─────────────────────────────────────────────────────────────
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+// ─── File Handler ─────────────────────────────────────────────────────────────
+function handleFile(file) {
+  clearMessages();
+  if (!file.name.match(/\.(xlsx|xls)$/i)) {
+    showError('Solo se aceptan archivos .xlsx o .xls');
+    return;
+  }
+
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileBadge').style.display = 'inline-flex';
+  zone.classList.add('has-file');
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      parseCartola(wb);
+    } catch (err) {
+      showError('Error al leer el archivo: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─── Parser ───────────────────────────────────────────────────────────────────
+function parseCartola(wb) {
+  const sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false });
+
+  // Find header row (Detalle movimientos)
+  let detailStart = -1;
+  let summaryStart = -1;
+  let saldoInicialRow = -1;
+  let saldoFinalVal = null;
+  let saldoInicialVal = null;
+  let fechaDesde = null, fechaHasta = null;
+  let numeroCuenta = null;
+  let numCartola = null;
+  let nombreBanco = 'BCI'; // default
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const joined = row.filter(Boolean).join(' ').toLowerCase();
+
+    // Detect bank name from title row
+    if (i === 0) {
+      const title = row.filter(Boolean).join(' ');
+      if (/banco/i.test(title)) {
+        const m = title.match(/banco\s+[\w\s]+/i);
+        if (m) nombreBanco = m[0].trim().replace(/\s+/g, ' ');
+      } else if (/bci/i.test(title)) {
+        nombreBanco = 'BCI';
+      } else if (/santander/i.test(title)) {
+        nombreBanco = 'Santander';
+      } else if (/chile/i.test(title)) {
+        nombreBanco = 'Banco de Chile';
+      } else if (/scotiabank/i.test(title)) {
+        nombreBanco = 'Scotiabank';
+      } else if (/itau/i.test(title)) {
+        nombreBanco = 'Itaú';
+      } else if (/falabella/i.test(title)) {
+        nombreBanco = 'Banco Falabella';
+      } else if (/security/i.test(title)) {
+        nombreBanco = 'Banco Security';
+      } else if (/bice/i.test(title)) {
+        nombreBanco = 'BICE';
+      }
+    }
+
+    if (joined.includes('saldo inicial') && joined.includes('saldo final')) {
+      saldoInicialRow = i + 1;
+    }
+    if (joined.includes('detalle movimientos')) {
+      detailStart = i + 2;
+    }
+    if (joined.includes('resumen comisiones')) {
+      summaryStart = i;
+    }
+    // Número de cartola
+    if (joined.includes('número cartola') || joined.includes('numero cartola') || joined.includes('n° cartola') || joined.includes('cartola:')) {
+      const r = rows[i];
+      for (let j = 0; j < r.length; j++) {
+        const cell = String(r[j] || '').toLowerCase();
+        if (cell.includes('cartola')) {
+          // Try same cell with number, or next cell
+          const numMatch = String(r[j]).match(/[\d]+/);
+          if (numMatch) { numCartola = numMatch[0]; break; }
+          if (r[j+1] !== null && r[j+1] !== undefined) {
+            numCartola = String(r[j+1]).replace(/\D/g,'') || String(r[j+1]);
+            break;
+          }
+        }
+      }
+    }
+    // Fecha desde/hasta
+    if (joined.includes('fecha desde')) {
+      const r = rows[i];
+      for (let j = 0; j < r.length; j++) {
+        if (String(r[j]).toLowerCase().includes('fecha desde')) fechaDesde = r[j + 1] || null;
+        if (String(r[j]).toLowerCase().includes('fecha hasta')) fechaHasta = r[j + 1] || null;
+      }
+    }
+  }
+
+  // Get saldo inicial and final
+  if (saldoInicialRow >= 0) {
+    const r = rows[saldoInicialRow];
+    // Row format: SALDO INICIAL, DEPÓSITOS, OTROS ABONOS, CHEQUES, OTROS CARGOS, IMPUESTOS, SALDO FINAL
+    saldoInicialVal = parseNum(r[0]);
+    saldoFinalVal = parseNum(r[6]);
+  }
+
+  // Extract transactions
+  if (detailStart < 0) {
+    showError('No se encontró la sección "Detalle movimientos" en el archivo.');
+    return;
+  }
+
+  const transactions = [];
+  const dataEnd = summaryStart >= 0 ? summaryStart : rows.length;
+
+  for (let i = detailStart; i < dataEnd; i++) {
+    const row = rows[i];
+    if (!row || row.every(c => c === null)) continue;
+    const monto = row[0];
+    const desc = row[1];
+    const fecha = row[3];
+    const nDoc = row[4];
+    const tipo = row[7]; // CARGO/ABONO
+
+    if (!monto || !fecha) continue;
+
+    const montoNum = parseFloat(String(monto).replace(/[^0-9.-]/g, ''));
+    if (isNaN(montoNum)) continue;
+
+    const isAbono = String(tipo || '').toUpperCase().trim() === 'A';
+    const isCargo = String(tipo || '').toUpperCase().trim() === 'C' || montoNum < 0;
+
+    transactions.push({
+      fecha: formatDate(fecha),
+      tipo: isCargo ? 'CB' : 'DP',
+      nDoc: extractDocNumber(formatDate(fecha)),  // siempre desde la fecha del movimiento
+      cargo: isCargo ? Math.abs(montoNum) : null,
+      abono: isAbono ? Math.abs(montoNum) : null,
+      desc: String(desc || ''),
+    });
+  }
+
+  if (transactions.length === 0) {
+    showError('No se encontraron movimientos en el archivo.');
+    return;
+  }
+
+  // Parse periodo
+  const pd = parsePeriodo(fechaDesde, fechaHasta);
+
+  parsedData = {
+    mes: pd.mes,
+    anio: pd.anio,
+    saldoInicial: saldoInicialVal || 0,
+    saldoFinal: saldoFinalVal || 0,
+    fechaDesde: pd.fechaDesde,
+    fechaHasta: pd.fechaHasta,
+    mesNombre: pd.mesNombre,
+    banco: nombreBanco,
+    numCartola: numCartola || '000',
+    transactions,
+  };
+
+  renderPreview();
+}
+
+// ─── Number parse ─────────────────────────────────────────────────────────────
+function parseNum(v) {
+  if (v === null || v === undefined) return 0;
+  const s = String(v).replace(/[^0-9.-]/g, '');
+  return parseFloat(s) || 0;
+}
+
+// ─── Date formatting ─────────────────────────────────────────────────────────
+function formatDate(v) {
+  if (!v) return '';
+  const s = String(v);
+  // Already DD/MM/YYYY
+  if (/\d{2}\/\d{2}\/\d{4}/.test(s)) return s;
+  // Try to parse
+  const d = new Date(s);
+  if (!isNaN(d)) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  return s;
+}
+
+function parsePeriodo(desde, hasta) {
+  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  let mes = 2, anio = 2026;
+  let fechaDesde = '01-02-2026', fechaHasta = '28-02-2026';
+  let mesNombre = 'Febrero';
+
+  if (desde) {
+    const s = String(desde);
+    const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (m) {
+      mes = parseInt(m[2]);
+      anio = parseInt(m[3]);
+      fechaDesde = `01-${m[2]}-${m[3]}`;
+      mesNombre = meses[mes - 1] || String(mes);
+    }
+  }
+  if (hasta) {
+    const s = String(hasta);
+    const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (m) {
+      const lastDay = new Date(parseInt(m[3]), parseInt(m[2]), 0).getDate();
+      fechaHasta = `${String(lastDay).padStart(2,'0')}-${m[2]}-${m[3]}`;
+    }
+  }
+  return { mes, anio, fechaDesde, fechaHasta, mesNombre };
+}
+
+// Doc number = día sin cero inicial + mes con cero, extraído de la fecha DD/MM/YYYY
+// Ej: 02/02/2026 → 202 | 05/02/2026 → 502 | 11/02/2026 → 1102 | 27/02/2026 → 2702
+function extractDocNumber(fecha) {
+  const m = String(fecha).match(/^(\d{2})\/(\d{2})/);
+  if (m) {
+    return String(parseInt(m[1], 10)) + m[2]; // día sin cero + mes (2 dígitos)
+  }
+  return fecha;
+}
+
+// ─── Render Preview ──────────────────────────────────────────────────────────
+function renderPreview() {
+  const d = parsedData;
+
+  document.getElementById('infoBanco').textContent = d.banco;
+  document.getElementById('infoCartola').textContent = d.numCartola;
+  document.getElementById('infoPeriodo').textContent = `${d.mesNombre} ${d.anio}`;
+  document.getElementById('infoSaldoIni').textContent = fmtNum(d.saldoInicial);
+  document.getElementById('infoSaldoFin').textContent = fmtNum(d.saldoFinal);
+  document.getElementById('infoMovs').textContent = d.transactions.length;
+  show('infoPanel');
+
+  // Table
+  const tbody = document.getElementById('txBody');
+  tbody.innerHTML = '';
+  d.transactions.forEach((tx, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${tx.fecha}</td>
+      <td class="type-${tx.tipo.toLowerCase()}">${tx.tipo}</td>
+      <td>${tx.nDoc}</td>
+      <td class="amount-cargo">${tx.cargo ? fmtNum(tx.cargo) : ''}</td>
+      <td class="amount-abono">${tx.abono ? fmtNum(tx.abono) : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('txCount').textContent = `${d.transactions.length} registros`;
+  show('txSection');
+  show('btnConvert');
+}
+
+function fmtNum(n) {
+  if (!n && n !== 0) return '';
+  return Number(n).toLocaleString('es-CL');
+}
+
+// ─── Generate Outputs ────────────────────────────────────────────────────────
+function generateOutputs() {
+  try {
+    xlsxBlob = buildXlsx();
+    txtContent = buildTxt();
+    const base = buildFileName();
+    document.getElementById('nameXlsx').textContent = base + '.xlsx';
+    document.getElementById('nameTxt').textContent = base + '.txt';
+    show('downloadSection');
+    show('btnReset');
+    showSuccess('✓ Archivos generados correctamente. Haz click en cada tarjeta para descargar.');
+    document.getElementById('btnConvert').style.display = 'none';
+  } catch (err) {
+    showError('Error al generar archivos: ' + err.message);
+    console.error(err);
+  }
+}
+
+function buildFileName() {
+  const d = parsedData;
+  // Format: "Banco XXX YYYYYY - MES AÑO"
+  return `Banco ${d.banco} ${d.numCartola} - ${d.mesNombre} ${d.anio}`;
+}
+
+// ─── Build XLSX ───────────────────────────────────────────────────────────────
+function buildXlsx() {
+  const d = parsedData;
+  const wb = XLSX.utils.book_new();
+  const wsData = [];
+
+  // Row 0: header row
+  wsData.push([d.mes, d.anio, d.saldoInicial, d.fechaDesde, d.fechaHasta, d.saldoFinal]);
+
+  // Transactions
+  let totalCargo = 0;
+  let totalAbono = 0;
+  d.transactions.forEach((tx, i) => {
+    wsData.push([
+      i + 1,
+      tx.fecha,
+      tx.tipo,
+      parseInt(tx.nDoc) || tx.nDoc,
+      tx.cargo || null,
+      tx.abono || null,
+    ]);
+    if (tx.cargo) totalCargo += tx.cargo;
+    if (tx.abono) totalAbono += tx.abono;
+  });
+
+  // Totals row
+  wsData.push([null, null, null, null, totalCargo || null, totalAbono || null]);
+  // Zero row
+  wsData.push([null, null, null, null, null, 0]);
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 6 }, { wch: 14 }, { wch: 6 }, { wch: 8 }, { wch: 12 }, { wch: 12 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Hoja1');
+
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  return new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+// ─── Build TXT ────────────────────────────────────────────────────────────────
+function buildTxt() {
+  const d = parsedData;
+  const TAB = '\t';
+  const lines = [];
+
+  // Header line
+  const fDesde = d.fechaDesde.replace(/-/g, '/');
+  const fHasta = d.fechaHasta.replace(/-/g, '/');
+  lines.push([d.mes, d.anio, d.saldoInicial, fDesde, fHasta, d.saldoFinal].join(TAB));
+
+  // Transactions
+  let totalCargo = 0;
+  let totalAbono = 0;
+  d.transactions.forEach((tx, i) => {
+    const row = [
+      i + 1,
+      tx.fecha,
+      tx.tipo,
+      parseInt(tx.nDoc) || tx.nDoc,
+      tx.cargo || '',
+      tx.abono || '',
+    ];
+    lines.push(row.join(TAB));
+    if (tx.cargo) totalCargo += tx.cargo;
+    if (tx.abono) totalAbono += tx.abono;
+  });
+
+  // Totals row — tabs before cargo/abono
+  lines.push([TAB, TAB, TAB, TAB, totalCargo || '', totalAbono || ''].join(TAB));
+  // Zero row
+  lines.push([TAB, TAB, TAB, TAB, TAB, 0].join(TAB));
+
+  return lines.join('\n') + '\n';
+}
+
+// ─── Downloads ────────────────────────────────────────────────────────────────
+function downloadXlsx() {
+  if (!xlsxBlob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(xlsxBlob);
+  a.download = buildFileName() + '.xlsx';
+  a.click();
+}
+
+function downloadTxt() {
+  if (!txtContent) return;
+  const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = buildFileName() + '.txt';
+  a.click();
+}
+
+// ─── UI Helpers ───────────────────────────────────────────────────────────────
+function show(id) {
+  document.getElementById(id).classList.add('visible');
+}
+
+function hide(id) {
+  document.getElementById(id).classList.remove('visible');
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+function showSuccess(msg) {
+  const el = document.getElementById('successMsg');
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+function clearMessages() {
+  document.getElementById('errorMsg').classList.remove('visible');
+  document.getElementById('successMsg').classList.remove('visible');
+}
+
+function resetAll() {
+  parsedData = null; xlsxBlob = null; txtContent = null;
+  clearMessages();
+  zone.classList.remove('has-file');
+  document.getElementById('fileBadge').style.display = 'none';
+  document.getElementById('fileName').textContent = '';
+  document.getElementById('fileInput').value = '';
+  ['infoPanel','txSection','btnConvert','downloadSection','btnReset'].forEach(hide);
+  document.getElementById('txBody').innerHTML = '';
+  document.getElementById('btnConvert').style.display = '';
+}
+</script>
+</body>
+</html>
