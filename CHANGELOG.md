@@ -1,3 +1,11 @@
+## [1.2.7] - 2026-03-26
+
+### Changed - Scripts
+
+- **Archivos modificados**: `index.html`, `CHANGELOG.md`
+- **BCI**: montos del input con **miles en punto** se interpretan con `parseNumBCI` (enteros en pesos); en el **`.xlsx`** salida, importes y saldos van como **texto** con dígitos sin separadores para evitar comas de formato regional en Excel.
+- **BCI**: movimientos cuya descripción coincide con **«Cheque cobrado por»** usan tipo **`CH`** en lugar de `CB`; vista previa con estilo `.type-ch`.
+
 ## [1.2.6] - 2026-03-26
 
 ### Changed - Documentación
