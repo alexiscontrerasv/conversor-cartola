@@ -1214,12 +1214,16 @@ function parseBCI(wbs) {
       const abonoNum = parseNumBCI(abono);
       if (cargoNum === 0 && abonoNum === 0) continue;
 
-      const nDocDigits = parseInt(String(nDocCell || '').replace(/\D/g, ''), 10);
-      const nDocOut = !isNaN(nDocDigits) && nDocDigits > 0 ? nDocDigits : extractDocNumber(fechaFmt);
-
       const descStr = String(desc || '');
       const isChequeCobrado = /cheque\s+cobrado\s+por/i.test(descStr);
       const tipo = abonoNum > 0 ? 'DP' : (isChequeCobrado ? 'CH' : 'CB');
+
+      const nDocDigits = parseInt(String(nDocCell || '').replace(/\D/g, ''), 10);
+      const nDocFromCol = !isNaN(nDocDigits) && nDocDigits > 0 ? nDocDigits : null;
+      const nDocOut =
+        tipo === 'CH'
+          ? (nDocFromCol ?? extractDocNumber(fechaFmt))
+          : extractDocNumber(fechaFmt);
 
       allTransactions.push({
         fecha: fechaFmt,
