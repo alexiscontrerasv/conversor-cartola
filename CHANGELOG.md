@@ -1,3 +1,10 @@
+## [1.2.8] - 2026-03-30
+
+### Fixed - Scripts
+
+- **Archivos modificados**: `index.html`, `index-v03.html`, `CHANGELOG.md`
+- **BCI**: el **N° documento** de movimientos **CH** sale de la columna de la cartola (si viene vacío o inválido, se usa el mismo criterio por fecha que el resto); en **CB** y **DP** el documento es **solo** el derivado de la fecha, como en los otros bancos.
+
 ## [1.2.7] - 2026-03-26
 
 ### Changed - Scripts
